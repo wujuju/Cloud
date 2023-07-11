@@ -5,6 +5,17 @@ RWTexture3D<float4> Result;
 #include "common.hlsl"
 #define PI          3.14159265358979323846
 
+float2 squareUV(float2 uv)
+{
+    float width = _ScreenParams.x;
+    float height = _ScreenParams.y;
+    //float minDim = min(width, height);
+    float scale = 1000;
+    float x = uv.x * width;
+    float y = uv.y * height;
+    return float2(x / scale, y / scale);
+}
+
 float lightmarch(float3 p)
 {
     //获取灯光信息
@@ -26,7 +37,7 @@ float lightmarch(float3 p)
     return mDarknessThreshold + transmittance * (1 - mDarknessThreshold);
 }
 
-float sdf(float3 p, float num)
+float sdf(float3 p, float uv, float num)
 {
     #define SQRTSAMPLECOUNT 8
     const float sqrtSample = float(SQRTSAMPLECOUNT);
@@ -48,7 +59,8 @@ float sdf(float3 p, float num)
             WorldDir.y = sinTheta * sinPhi;
             WorldDir.z = cosPhi;
             float dstInsideBox = rayBoxDst(mBoundsMin, mBoundsMax, p, WorldDir).y;
-            float step = 11;
+            float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, squareUV(uv * 3), 0);
+            float step = 5 + randomOffset * mRayOffsetStrength;
             while (step < dstInsideBox)
             {
                 float density = sampleDensity2(p + WorldDir * step, 0);
@@ -73,7 +85,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
     const float3 p = mBoundsMin + uvw * (mBoundsMax - mBoundsMin);
     color.r = sampleDensity2(p, 0);
-    color.g = sdf(p, 64);
+    color.g = sdf(p, uvw.xy, 64);
     if (color.r > 0)
         color.b = lightmarch(p);
     Result[id] = color;
