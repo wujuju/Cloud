@@ -72,7 +72,7 @@ public class VolumeCloud : ScriptableRendererFeature
     [System.Serializable]
     public class CloudSettings
     {
-        [HideInInspector] public bool isInitBake;
+        [HideInInspector, HideInBuffer] public bool isInitBake;
         [HideInInspector] public Vector3 mMapSize;
         [HideInInspector] public Vector3 mBoundsMin;
         [HideInInspector] public Vector3 mBoundsMax;
@@ -82,14 +82,14 @@ public class VolumeCloud : ScriptableRendererFeature
         [HideInInspector] public Vector4 mPhaseParams;
         [HideInInspector] public RenderTexture CloudBakeTex;
 
-        public string name = "VolumeCloud";
+        [HideInBuffer] public string name = "VolumeCloud";
         const string headerDecoration = " --- ";
 
-        [Header(headerDecoration + "Main" + headerDecoration)]
+        [HideInBuffer, Header(headerDecoration + "Main" + headerDecoration)]
         public bool isUseBake;
 
-        public ComputeShader computeShader;
-        public Vector3Int resolution = new Vector3Int(512, 64, 512);
+        [HideInBuffer] public ComputeShader computeShader;
+        [HideInBuffer] public Vector3Int resolution = new Vector3Int(512, 64, 512);
         public Vector3 mCloudTestParams = new Vector3(0.9f, 7.29f, 0.64f);
 
         [Header(headerDecoration + "Optimize" + headerDecoration)] [Range(1, 4)]
@@ -126,13 +126,13 @@ public class VolumeCloud : ScriptableRendererFeature
 
         [Range(0, 1)] public float mDarknessThreshold = .28f;
 
-        [Range(0, 1)] public float forwardScattering = .72f;
+        [HideInBuffer, Range(0, 1)] public float forwardScattering = .72f;
 
-        [Range(0, 1)] public float backScattering = .33f;
+        [HideInBuffer, Range(0, 1)] public float backScattering = .33f;
 
-        [Range(0, 1)] public float baseBrightness = 1f;
+        [HideInBuffer, Range(0, 1)] public float baseBrightness = 1f;
 
-        [Range(0, 1)] public float phaseFactor = .83f;
+        [HideInBuffer, Range(0, 1)] public float phaseFactor = .83f;
 
         [Header(headerDecoration + "Animation" + headerDecoration)]
         public float mTimeScale = 1;
@@ -210,7 +210,8 @@ public class VolumeCloud : ScriptableRendererFeature
             int size = 0;
             foreach (FieldInfo field in fields)
             {
-                if (!field.Name.StartsWith("m") && field.FieldType != typeof(RenderTexture))
+                var attribute = Attribute.GetCustomAttribute(field, typeof(HideInBuffer));
+                if (attribute != null)
                     continue;
                 var value = field.GetValue(cb);
                 if (field.FieldType == typeof(float))
@@ -344,6 +345,10 @@ public class VolumeCloud : ScriptableRendererFeature
         cs.GetKernelThreadGroupSizes(kernel, out var threadNumX, out var threadNumY, out var threadNumZ);
         cs.Dispatch(kernel, lutSize.x / (int)threadNumX,
             lutSize.y / (int)threadNumY, lutSize.z);
+    }
+
+    sealed class HideInBuffer : Attribute
+    {
     }
 
     #endregion
