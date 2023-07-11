@@ -17,6 +17,7 @@ Shader "Hidden/Clouds"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile _ BAKE
+            #pragma multi_compile _ DEBUG_MODE
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -50,7 +51,7 @@ Shader "Hidden/Clouds"
 
             sampler2D _MainTex;
             // Debug settings:
-            int debugViewMode; // 0 = off; 1 = shape tex; 2 = detail tex; 3 = weathermap
+            int debugViewMode;
             int debugGreyscale;
             int debugShowAllChannels;
             float debugNoiseSliceDepth;
@@ -169,7 +170,7 @@ Shader "Hidden/Clouds"
 
             float4 frag(v2f i) : SV_Target
             {
-                #if DEBUG_MODE == 0
+                #if DEBUG_MODE == 1
                 if (debugViewMode != 0)
                 {
                     float width = _ScreenParams.x;
@@ -205,7 +206,6 @@ Shader "Hidden/Clouds"
                 randomOffset *= mRayOffsetStrength;
 
                 // Phase function makes clouds brighter around sun
-                //获取灯光信息
                 Light mainLight = GetMainLight();
                 float cosAngle = dot(rayDir, mainLight.direction);
                 float phaseVal = phase(cosAngle);
@@ -218,7 +218,6 @@ Shader "Hidden/Clouds"
                 float stepSize = 11;
                 float transmittance = 1;
                 float3 lightEnergy = 0;
-                dstTravelled = 11;
                 while (dstTravelled < dstLimit)
                 {
                     rayPos = entryPoint + rayDir * dstTravelled;
@@ -228,7 +227,7 @@ Shader "Hidden/Clouds"
                         float density = bakeColor.r;
                         float sdf=bakeColor.g*mNumStepsSDF;
                         stepSize=sdf;
-                     stepSize=max(11,sdf);
+                     // stepSize=max(11,sdf);
                         float  lightTransmittance = bakeColor.b;
                         lightEnergy += density * stepSize * transmittance * lightTransmittance * phaseVal;
                         transmittance *= exp(-density * stepSize * mLightAbsorptionThroughCloud);
@@ -238,8 +237,7 @@ Shader "Hidden/Clouds"
                             break;
                         }
                     #else
-                    // float density = sampleDensity2(rayPos,_Time.x);
-                    float density = sampleDensity2(rayPos, 0);
+                    float density = sampleDensity2(rayPos,_Time.x);
                     if (density > 0)
                     {
                         float lightTransmittance = lightmarch(rayPos);

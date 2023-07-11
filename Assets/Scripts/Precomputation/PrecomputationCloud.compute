@@ -73,7 +73,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
     const float3 p = mBoundsMin + uvw * (mBoundsMax - mBoundsMin);
     color.r = sampleDensity2(p, 0);
-    // color.g = sdf(p, 64);
+    color.g = sdf(p, 64);
     if (color.r > 0)
         color.b = lightmarch(p);
     Result[id] = color;

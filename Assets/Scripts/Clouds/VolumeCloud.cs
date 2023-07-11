@@ -81,15 +81,15 @@ public class VolumeCloud : ScriptableRendererFeature
         [HideInInspector] public RenderTexture DetailNoiseTex;
         [HideInInspector] public Vector4 mPhaseParams;
         [HideInInspector] public RenderTexture CloudBakeTex;
-
-        [HideInBuffer] public string name = "VolumeCloud";
-        const string headerDecoration = " --- ";
-
-        [HideInBuffer, Header(headerDecoration + "Main" + headerDecoration)]
-        public bool isUseBake;
-
         [HideInBuffer] public ComputeShader computeShader;
         [HideInBuffer] public Vector3Int resolution = new Vector3Int(512, 64, 512);
+        [HideInInspector, HideInBuffer] public string name = "VolumeCloud";
+        [HideInBuffer] public bool isUseBake;
+
+
+        const string headerDecoration = " --- ";
+
+        [Header(headerDecoration + "Main" + headerDecoration)]
         public Vector3 mCloudTestParams = new Vector3(0.9f, 7.29f, 0.64f);
 
         [Header(headerDecoration + "Optimize" + headerDecoration)] [Range(1, 4)]
@@ -98,9 +98,9 @@ public class VolumeCloud : ScriptableRendererFeature
         [Header(headerDecoration + "March settings" + headerDecoration)] [Range(1, 20)]
         public int mNumStepsLight = 8;
 
-        public int mNumStepsSDF = 2000;
+        [Range(100, 3000)] public float mNumStepsSDF = 2000;
         public float mRayOffsetStrength = 10;
-        public Texture2D mBlueNoise;
+        public Texture2D BlueNoise;
 
         [Header(headerDecoration + "Base Shape" + headerDecoration)]
         public float mCloudScale = 0.6f;
@@ -302,6 +302,13 @@ public class VolumeCloud : ScriptableRendererFeature
                 debugModeIndex = 3;
             }
 
+            if (debugModeIndex == 0)
+            {
+                material.DisableKeyword("DEBUG_MODE");
+                return;
+            }
+
+            material.EnableKeyword("DEBUG_MODE");
             material.SetInt("debugViewMode", debugModeIndex);
             material.SetFloat("debugNoiseSliceDepth", noise.viewerSliceDepth);
             material.SetFloat("debugTileAmount", noise.viewerTileAmount);
