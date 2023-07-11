@@ -1,0 +1,78 @@
+#pragma kernel CSMain
+
+RWTexture3D<float4> Result;
+#include "common.hlsl"
+#define PI          3.14159265358979323846
+float3 _WorldSpaceLightPos0;
+
+float lightmarch(float3 p)
+{
+    float3 dirToLight = _WorldSpaceLightPos0.xyz;
+    float dstInsideBox = rayBoxDst(mBoundsMin, mBoundsMax, p, 1 / dirToLight).y;
+
+    float stepSize = dstInsideBox / mNumStepsLight;
+    p += dirToLight * stepSize * .5;
+    float totalDensity = 0;
+
+    for (int step = 0; step < mNumStepsLight; step ++)
+    {
+        totalDensity += max(0, sampleDensity2(p, 0) * stepSize);
+        p += dirToLight * stepSize;
+    }
+
+    float transmittance = exp(-totalDensity * mLightAbsorptionTowardSun);
+    return mDarknessThreshold + transmittance * (1 - mDarknessThreshold);
+}
+
+float sdf(float3 p, float num)
+{
+    #define SQRTSAMPLECOUNT 8
+    const float sqrtSample = float(SQRTSAMPLECOUNT);
+    float3 WorldDir = 0;
+    for (int k = 0; k < num; ++k)
+    {
+        float i = 0.5f + float(k / SQRTSAMPLECOUNT);
+        float j = 0.5f + float(k - float((k / SQRTSAMPLECOUNT) * SQRTSAMPLECOUNT));
+        {
+            float randA = i / sqrtSample;
+            float randB = j / sqrtSample;
+            float theta = 2.0f * PI * randA;
+            float phi = acos(1.0f - 2.0f * randB);
+            float cosPhi = cos(phi);
+            float sinPhi = sin(phi);
+            float cosTheta = cos(theta);
+            float sinTheta = sin(theta);
+            WorldDir.x = cosTheta * sinPhi;
+            WorldDir.y = sinTheta * sinPhi;
+            WorldDir.z = cosPhi;
+            float dstInsideBox = rayBoxDst(mBoundsMin, mBoundsMax, p, WorldDir).y;
+            float step = 11;
+            while (step < dstInsideBox)
+            {
+                float density = sampleDensity2(p + WorldDir * step, 0);
+                if (density > 0)
+                {
+                    return step / mNumStepsSDF;
+                }
+                step += 11;
+            }
+        }
+    }
+
+    return 1;
+}
+
+[numthreads(8,8,1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    float w, h, d;
+    Result.GetDimensions(w, h, d);
+    float4 color = float4(0, 0, 0, 1);
+    const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
+    const float3 p = mBoundsMin + uvw * (mBoundsMax - mBoundsMin);
+    color.r = sampleDensity2(p, 0);
+    color.g = sdf(p, 64);
+    if (color.r > 0)
+        color.b = lightmarch(p);
+    Result[id] = color;
+}
