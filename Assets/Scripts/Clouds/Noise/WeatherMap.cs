@@ -25,7 +25,8 @@ public class WeatherMap : MonoBehaviour
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         var rtSize = new Vector3Int(resolution, resolution);
-        VolumeCloud.CheckOrCreateLUT(ref weatherMap, rtSize, RenderTextureFormat.RG16);
+        CreateTexture(ref weatherMap, resolution);
+        // VolumeCloud.CheckOrCreateLUT(ref weatherMap, rtSize, RenderTextureFormat.ARGBFloat);
 
         if (noiseCompute == null)
         {
@@ -82,5 +83,30 @@ public class WeatherMap : MonoBehaviour
         buffer.SetData(data);
         noiseCompute.SetBuffer(kernel, bufferName, buffer);
         return buffer;
+    }
+
+    void CreateTexture(ref RenderTexture texture, int resolution)
+    {
+        var format = UnityEngine.Experimental.Rendering.GraphicsFormat.R16G16B16A16_UNorm;
+        if (texture == null || !texture.IsCreated() || texture.width != resolution || texture.height != resolution ||
+            texture.graphicsFormat != format)
+        {
+            if (texture != null)
+            {
+                texture.Release();
+            }
+
+            texture = new RenderTexture(resolution, resolution, 0);
+            texture.graphicsFormat = format;
+            texture.volumeDepth = resolution;
+            texture.enableRandomWrite = true;
+            texture.dimension = UnityEngine.Rendering.TextureDimension.Tex2D;
+            texture.name = name;
+
+            texture.Create();
+        }
+
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
     }
 }

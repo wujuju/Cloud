@@ -14,11 +14,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   cloudSettings:
+    isInitBake: 1
+    mMapSize: {x: 4357.5044, y: 249.86116, z: 5190.4883}
+    mBoundsMin: {x: -2178.7522, y: -124.93058, z: -2595.2441}
+    mBoundsMax: {x: 2178.7522, y: 124.93058, z: 2595.2441}
+    WeatherMap: {fileID: 0}
+    NoiseTex: {fileID: 0}
+    DetailNoiseTex: {fileID: 0}
+    mPhaseParams: {x: 0.72, y: 0.33, z: 1, w: 0.83}
+    CloudBakeTex: {fileID: 0}
     name: VolumeCloud
-    cloudBakeTexture: {fileID: 0}
-    mIsUseBake: 0
+    isUseBake: 0
     computeShader: {fileID: 7200000, guid: 81619b6e193c1b24caf2c4e9632d3a63, type: 3}
-    resolution: {x: 512, y: 128, z: 512}
+    resolution: {x: 512, y: 64, z: 512}
     mCloudTestParams: {x: 0.9, y: 7.29, z: 0.64}
     mRTScale: 1
     mNumStepsLight: 8
@@ -38,10 +46,10 @@ MonoBehaviour:
     mLightAbsorptionThroughCloud: 1.05
     mLightAbsorptionTowardSun: 1.09
     mDarknessThreshold: 0.28
-    mForwardScattering: 0.72
-    mBackScattering: 0.33
-    mBaseBrightness: 1
-    mPhaseFactor: 0.83
+    forwardScattering: 0.72
+    backScattering: 0.33
+    baseBrightness: 1
+    phaseFactor: 0.83
     mTimeScale: 1
     mBaseSpeed: 0.5
     mDetailSpeed: 1

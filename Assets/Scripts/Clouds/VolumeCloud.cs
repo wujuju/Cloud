@@ -14,7 +14,6 @@ public class VolumeCloud : ScriptableRendererFeature
     public override void Create()
     {
         m_ScriptablePass = new CustomRenderPass(cloudSettings);
-        PrecomputeCloud();
         m_ScriptablePass.renderPassEvent = RenderPassEvent.AfterRenderingSkybox;
     }
 
@@ -23,22 +22,6 @@ public class VolumeCloud : ScriptableRendererFeature
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
         renderer.EnqueuePass(m_ScriptablePass);
-    }
-
-    private void PrecomputeCloud()
-    {
-        CheckOrCreateLUT(ref cloudSettings.cloudBakeTexture, cloudSettings.resolution, RenderTextureFormat.ARGB32);
-        var computeShader = cloudSettings.computeShader;
-        int index = computeShader.FindKernel("CSMain");
-        computeShader.SetTexture(index, Shader.PropertyToID("Result"), cloudSettings.cloudBakeTexture);
-        // Noise
-        var noise = FindObjectOfType<NoiseGenerator>();
-        computeShader.SetTexture(index, Shader.PropertyToID("NoiseTex"), noise.shapeTexture);
-        computeShader.SetTexture(index, Shader.PropertyToID("DetailNoiseTex"), noise.detailTexture);
-        computeShader.SetTexture(index, Shader.PropertyToID("BlueNoise"), cloudSettings.mBlueNoise);
-        var weatherMapGen = FindObjectOfType<WeatherMap>();
-        computeShader.SetTexture(index, Shader.PropertyToID("WeatherMap"), weatherMapGen.weatherMap);
-        Dispatch(computeShader, index, cloudSettings.resolution);
     }
 
     class CustomRenderPass : ScriptableRenderPass
@@ -50,10 +33,11 @@ public class VolumeCloud : ScriptableRendererFeature
         public CustomRenderPass(CloudSettings sets)
         {
             var noise = FindObjectOfType<NoiseGenerator>();
-            noise.UpdateNoise();
+            noise?.UpdateNoise();
             var weatherMapGen = FindObjectOfType<WeatherMap>();
-            weatherMapGen.UpdateMap();
-            this.cloudSettings = sets;
+            weatherMapGen?.UpdateMap();
+            cloudSettings = sets;
+            cloudSettings.UpdateBuff();
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -68,7 +52,6 @@ public class VolumeCloud : ScriptableRendererFeature
         {
             CommandBuffer cmd = CommandBufferPool.Get(cloudSettings.name);
             RenderTargetIdentifier tempRT = tempRTHandle.Identifier();
-
             cloudSettings.UpdateBuff();
             cmd.SetGlobalTexture("_MainTex", blitSrc);
             cmd.Blit(blitSrc, tempRT, CloudSettings.Material);
@@ -89,17 +72,24 @@ public class VolumeCloud : ScriptableRendererFeature
     [System.Serializable]
     public class CloudSettings
     {
+        [HideInInspector] public bool isInitBake;
+        [HideInInspector] public Vector3 mMapSize;
+        [HideInInspector] public Vector3 mBoundsMin;
+        [HideInInspector] public Vector3 mBoundsMax;
+        [HideInInspector] public RenderTexture WeatherMap;
+        [HideInInspector] public RenderTexture NoiseTex;
+        [HideInInspector] public RenderTexture DetailNoiseTex;
+        [HideInInspector] public Vector4 mPhaseParams;
+        [HideInInspector] public RenderTexture CloudBakeTex;
+
         public string name = "VolumeCloud";
         const string headerDecoration = " --- ";
 
-        [HideInInspector] public RenderTexture cloudBakeTexture;
-        private Vector3 mMapSize;
-
         [Header(headerDecoration + "Main" + headerDecoration)]
-        public bool mIsUseBake;
+        public bool isUseBake;
 
         public ComputeShader computeShader;
-        public Vector3Int resolution = new Vector3Int(512, 128, 512);
+        public Vector3Int resolution = new Vector3Int(512, 64, 512);
         public Vector3 mCloudTestParams = new Vector3(0.9f, 7.29f, 0.64f);
 
         [Header(headerDecoration + "Optimize" + headerDecoration)] [Range(1, 4)]
@@ -136,13 +126,13 @@ public class VolumeCloud : ScriptableRendererFeature
 
         [Range(0, 1)] public float mDarknessThreshold = .28f;
 
-        [Range(0, 1)] public float mForwardScattering = .72f;
+        [Range(0, 1)] public float forwardScattering = .72f;
 
-        [Range(0, 1)] public float mBackScattering = .33f;
+        [Range(0, 1)] public float backScattering = .33f;
 
-        [Range(0, 1)] public float mBaseBrightness = 1f;
+        [Range(0, 1)] public float baseBrightness = 1f;
 
-        [Range(0, 1)] public float mPhaseFactor = .83f;
+        [Range(0, 1)] public float phaseFactor = .83f;
 
         [Header(headerDecoration + "Animation" + headerDecoration)]
         public float mTimeScale = 1;
@@ -171,38 +161,45 @@ public class VolumeCloud : ScriptableRendererFeature
         public void UpdateBuff()
         {
             var material = Material;
-            if (mIsUseBake)
-            {
+            if (isUseBake)
                 material.EnableKeyword("BAKE");
-                material.SetTexture("CloudBakeTex", cloudBakeTexture);
-            }
             else
                 material.DisableKeyword("BAKE");
 
             var noise = FindObjectOfType<NoiseGenerator>();
-            noise.UpdateNoise();
-
-            material.SetTexture("NoiseTex", noise.shapeTexture);
-            material.SetTexture("DetailNoiseTex", noise.detailTexture);
-
-            // Weathermap
             var weatherMapGen = FindObjectOfType<WeatherMap>();
-            material.SetTexture("WeatherMap", weatherMapGen.weatherMap);
+            if (noise == null || weatherMapGen == null)
+                return;
+#if UNITY_EDITOR
+            noise.UpdateNoise();
+            weatherMapGen.UpdateMap();
+            SetDebugParams();
+#endif
+            NoiseTex = noise.shapeTexture;
+            DetailNoiseTex = noise.detailTexture;
+            WeatherMap = weatherMapGen.weatherMap;
 
             Transform container = GameObject.Find("Container").transform;
             mMapSize = container.localScale;
 
-            material.SetVector("mBoundsMin", container.position - container.localScale / 2);
-            material.SetVector("mBoundsMax", container.position + container.localScale / 2);
-            material.SetVector("mPhaseParams",
-                new Vector4(mForwardScattering, mBackScattering, mBaseBrightness, mPhaseFactor));
-
+            mBoundsMin = container.position - container.localScale / 2;
+            mBoundsMax = container.position + container.localScale / 2;
+            mPhaseParams = new Vector4(forwardScattering, backScattering, baseBrightness, phaseFactor);
             SetComputeShaderConstant(GetType(), this);
-#if UNITY_EDITOR
-            SetDebugParams();
-#endif
+
+            PrecomputeCloud();
         }
 
+        private void PrecomputeCloud()
+        {
+            if (isInitBake && CloudBakeTex)
+                return;
+            CheckOrCreateLUT(ref CloudBakeTex, resolution, RenderTextureFormat.ARGB32);
+            int index = computeShader.FindKernel("CSMain");
+            computeShader.SetTexture(index, Shader.PropertyToID("Result"), CloudBakeTex);
+            Dispatch(computeShader, index, resolution);
+            isInitBake = true;
+        }
 
         #region 常量缓冲区
 
@@ -213,6 +210,8 @@ public class VolumeCloud : ScriptableRendererFeature
             int size = 0;
             foreach (FieldInfo field in fields)
             {
+                if (!field.Name.StartsWith("m") && field.FieldType != typeof(RenderTexture))
+                    continue;
                 var value = field.GetValue(cb);
                 if (field.FieldType == typeof(float))
                 {
@@ -256,6 +255,7 @@ public class VolumeCloud : ScriptableRendererFeature
                 }
                 else if (field.FieldType == typeof(Texture2D))
                 {
+                    computeShader.SetTexture(0, field.Name, (Texture2D)value);
                     currMaterial.SetTexture(field.Name, (Texture2D)value);
                 }
                 else if (field.FieldType == typeof(Matrix4x4))
@@ -263,20 +263,14 @@ public class VolumeCloud : ScriptableRendererFeature
                     currMaterial.SetMatrix(field.Name, (Matrix4x4)value);
                     size += 16;
                 }
-                else if (field.FieldType == typeof(Boolean))
-                {
-                }
-                else if (field.FieldType == typeof(String))
-                {
-                }
                 else if (field.FieldType == typeof(RenderTexture))
                 {
-                }
-                else if (field.FieldType == typeof(ComputeShader))
-                {
-                }
-                else if (field.FieldType == typeof(Vector3Int))
-                {
+                    var texture = (RenderTexture)value;
+                    if (texture)
+                    {
+                        computeShader.SetTexture(0, Shader.PropertyToID(field.Name), texture);
+                        currMaterial.SetTexture(field.Name, texture);
+                    }
                 }
                 else
                 {

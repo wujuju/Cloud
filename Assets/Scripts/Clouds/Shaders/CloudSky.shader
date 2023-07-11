@@ -18,8 +18,8 @@ Shader "Hidden/Clouds"
             #pragma fragment frag
             #pragma multi_compile _ BAKE
 
-             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/Scripts/Precomputation/common.hlsl"
 
             // vertex input: position, UV
@@ -48,12 +48,7 @@ Shader "Hidden/Clouds"
                 return output;
             }
 
-
             sampler2D _MainTex;
-            TEXTURE2D(_CameraDepthTexture);
-            SAMPLER(sampler_LinearClamp);
-
-
             // Debug settings:
             int debugViewMode; // 0 = off; 1 = shape tex; 2 = detail tex; 3 = weathermap
             int debugGreyscale;
@@ -109,63 +104,6 @@ Shader "Hidden/Clouds"
                 return col;
             }
 
-            float sampleDensity(float3 rayPos)
-            {
-                // Constants:
-                const int mipLevel = 0;
-                const float baseScale = 1 / 1000.0;
-                const float offsetSpeed = 1 / 100.0;
-
-                // Calculate texture sample positions
-                float time = _Time.x * mTimeScale;
-                float3 size = mBoundsMax - mBoundsMin;
-                float3 boundsCentre = (mBoundsMin + mBoundsMax) * .5;
-                float3 uvw = (size * .5 + rayPos) * baseScale * mCloudScale;
-                float3 shapeSamplePos = uvw + mShapeOffset * offsetSpeed + float3(time, time * 0.1, time * 0.2) *
-                    mBaseSpeed;
-
-                // Calculate falloff at along x/z edges of the cloud container
-                const float containerEdgeFadeDst = 50;
-                float dstFromEdgeX = min(containerEdgeFadeDst, min(rayPos.x - mBoundsMin.x, mBoundsMax.x - rayPos.x));
-                float dstFromEdgeZ = min(containerEdgeFadeDst, min(rayPos.z - mBoundsMin.z, mBoundsMax.z - rayPos.z));
-                float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
-
-                // Calculate height gradient from weather map
-                float2 weatherUV = (size.xz * .5 + (rayPos.xz - boundsCentre.xz)) / max(size.x, size.z);
-                float weatherMap = WeatherMap.SampleLevel(samplerWeatherMap, weatherUV, mipLevel).x;
-                float gMin = remap(weatherMap.x, 0, 1, 0.1, 0.5);
-                float gMax = remap(weatherMap.x, 0, 1, gMin, 0.9);
-                float heightPercent = (rayPos.y - mBoundsMin.y) / size.y;
-                float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(
-                    remap(heightPercent, 1, gMax, 0, 1));
-                // heightGradient *= edgeWeight;
-                heightGradient = 1;
-                // Calculate base shape density
-                float4 shapeNoise = NoiseTex.SampleLevel(samplerNoiseTex, shapeSamplePos, mipLevel);
-                float4 normalizedShapeWeights = mShapeNoiseWeights / dot(mShapeNoiseWeights, 1);
-                float shapeFBM = dot(shapeNoise, normalizedShapeWeights) * heightGradient;
-                float baseShapeDensity = shapeFBM + mDensityOffset * .1;
-                // Save sampling from detail tex if shape density <= 0
-                if (baseShapeDensity > 0)
-                {
-                    // Sample detail noise
-                    float3 detailSamplePos = uvw * mDetailNoiseScale + mDetailOffset * offsetSpeed + float3(
-                        time * .4, -time, time * 0.1) * mDetailSpeed;
-                    float4 detailNoise = DetailNoiseTex.SampleLevel(samplerDetailNoiseTex, detailSamplePos, mipLevel);
-                    float3 normalizedDetailWeights = mDetailNoiseWeights / dot(mDetailNoiseWeights, 1);
-                    float detailFBM = dot(detailNoise, normalizedDetailWeights);
-
-                    // Subtract detail noise from base shape (weighted by inverse density so that edges get eroded more than centre)
-                    float oneMinusShape = 1 - shapeFBM;
-                    float detailErodeWeight = oneMinusShape * oneMinusShape * oneMinusShape;
-                    float cloudDensity = baseShapeDensity - (1 - detailFBM) * detailErodeWeight * mDetailNoiseWeight;
-
-                    return cloudDensity * mDensityMultiplier * 0.1;
-                }
-                return 0;
-            }
-
-            // Calculate proportion of light that reaches the given point from the lightsource
             float lightmarch(float3 p)
             {
                 //获取灯光信息
@@ -252,7 +190,8 @@ Shader "Hidden/Clouds"
                 float3 rayDir = i.viewVector / viewLength;
 
                 // Depth and cloud container intersection info:
-                float nonlin_depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_LinearClamp, i.uv);
+                // float nonlin_depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_CameraDepthTexture, i.uv);
+                float nonlin_depth = SampleSceneDepth(i.uv);
                 float depth = LinearEyeDepth(nonlin_depth, _ZBufferParams) * viewLength;
                 float2 rayToContainerInfo = rayBoxDst(mBoundsMin, mBoundsMax, rayPos, 1 / rayDir);
                 float dstToBox = rayToContainerInfo.x;
@@ -266,7 +205,7 @@ Shader "Hidden/Clouds"
                 randomOffset *= mRayOffsetStrength;
 
                 // Phase function makes clouds brighter around sun
-                 //获取灯光信息
+                //获取灯光信息
                 Light mainLight = GetMainLight();
                 float cosAngle = dot(rayDir, mainLight.direction);
                 float phaseVal = phase(cosAngle);
@@ -287,12 +226,12 @@ Shader "Hidden/Clouds"
                     #if BAKE
                         float3 bakeColor=bakeDensity(rayPos);
                         float density = bakeColor.r;
-                        float sdf=bakeColor.g*max_step;
-                    // stepSize = max(11,sdf);
-                    stepSize=sdf;
+                        float sdf=bakeColor.g*mNumStepsSDF;
+                        stepSize=sdf;
+                     stepSize=max(11,sdf);
                         float  lightTransmittance = bakeColor.b;
                         lightEnergy += density * stepSize * transmittance * lightTransmittance * phaseVal;
-                        transmittance *= exp(-density * stepSize * lightAbsorptionThroughCloud);
+                        transmittance *= exp(-density * stepSize * mLightAbsorptionThroughCloud);
                         // Early exit
                         if (transmittance < 0.01)
                         {

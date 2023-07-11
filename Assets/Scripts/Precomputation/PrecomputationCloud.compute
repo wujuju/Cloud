@@ -1,13 +1,15 @@
 #pragma kernel CSMain
 
 RWTexture3D<float4> Result;
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include "common.hlsl"
 #define PI          3.14159265358979323846
-float3 _WorldSpaceLightPos0;
 
 float lightmarch(float3 p)
 {
-    float3 dirToLight = _WorldSpaceLightPos0.xyz;
+    //获取灯光信息
+    Light mainLight = GetMainLight();
+    float3 dirToLight = mainLight.direction;
     float dstInsideBox = rayBoxDst(mBoundsMin, mBoundsMax, p, 1 / dirToLight).y;
 
     float stepSize = dstInsideBox / mNumStepsLight;
@@ -71,7 +73,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
     const float3 p = mBoundsMin + uvw * (mBoundsMax - mBoundsMin);
     color.r = sampleDensity2(p, 0);
-    color.g = sdf(p, 64);
+    // color.g = sdf(p, 64);
     if (color.r > 0)
         color.b = lightmarch(p);
     Result[id] = color;
