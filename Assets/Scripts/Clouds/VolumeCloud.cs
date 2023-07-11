@@ -99,7 +99,7 @@ public class VolumeCloud : ScriptableRendererFeature
         public int mNumStepsLight = 8;
 
         [Range(100, 3000)] public float mNumStepsSDF = 2000;
-        public float mRayOffsetStrength = 10;
+        public float mRayOffsetStrength = 9.19f;
         public Texture2D BlueNoise;
 
         [Header(headerDecoration + "Base Shape" + headerDecoration)]
@@ -122,7 +122,7 @@ public class VolumeCloud : ScriptableRendererFeature
         [Header(headerDecoration + "Lighting" + headerDecoration)]
         public float mLightAbsorptionThroughCloud = 1.05f;
 
-        public float mLightAbsorptionTowardSun = 1.09f;
+        public float mLightAbsorptionTowardSun = 1.6f;
 
         [Range(0, 1)] public float mDarknessThreshold = .28f;
 
@@ -134,11 +134,12 @@ public class VolumeCloud : ScriptableRendererFeature
 
         [HideInBuffer, Range(0, 1)] public float phaseFactor = .83f;
 
-        [Header(headerDecoration + "Animation" + headerDecoration)]
+        [Header(headerDecoration + "Animation" + headerDecoration)] [Range(0, 2)]
         public float mTimeScale = 1;
 
-        public float mBaseSpeed = 0.5f;
-        public float mDetailSpeed = 1;
+        [Range(0, 2)] public float mBaseSpeed = 0.5f;
+        [Range(0, 2)] public float mDetailSpeed = 1;
+        [Range(1, 20)] public float mBakeCloudSpeed = 10;
 
         [Header(headerDecoration + "Sky" + headerDecoration)]
         public Color mColA = new Color(227 / 255f, 246 / 255f, 255 / 255f);
@@ -194,7 +195,7 @@ public class VolumeCloud : ScriptableRendererFeature
         {
             if (isInitBake && CloudBakeTex)
                 return;
-            CheckOrCreateLUT(ref CloudBakeTex, resolution, RenderTextureFormat.ARGB32);
+            CheckOrCreateLUT(ref CloudBakeTex, resolution, RenderTextureFormat.ARGB32, TextureWrapMode.Clamp);
             int index = computeShader.FindKernel("CSMain");
             computeShader.SetTexture(index, Shader.PropertyToID("Result"), CloudBakeTex);
             Dispatch(computeShader, index, resolution);
@@ -323,7 +324,8 @@ public class VolumeCloud : ScriptableRendererFeature
 
     #region 工具
 
-    public static void CheckOrCreateLUT(ref RenderTexture targetLUT, Vector3Int size, RenderTextureFormat format)
+    public static void CheckOrCreateLUT(ref RenderTexture targetLUT, Vector3Int size, RenderTextureFormat format,
+        TextureWrapMode mode)
     {
         if (targetLUT == null || (targetLUT.width != size.x || targetLUT.height != size.y))
         {
@@ -340,6 +342,7 @@ public class VolumeCloud : ScriptableRendererFeature
             rt.useMipMap = false;
             rt.filterMode = FilterMode.Bilinear;
             rt.enableRandomWrite = true;
+            rt.wrapMode = mode;
             rt.Create();
             targetLUT = rt;
         }

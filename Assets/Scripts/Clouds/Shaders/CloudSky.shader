@@ -100,7 +100,8 @@ Shader "Hidden/Clouds"
             float3 bakeDensity(float3 rayPos)
             {
                 float3 size = mBoundsMax - mBoundsMin;
-                float3 uvw = (rayPos) / size + 0.5f;
+                float time = _Time.x * mTimeScale;
+                float3 uvw = (rayPos) / size + 0.5f + float3(time, time * 0.1, time * 0.2) * mBakeCloudSpeed * 0.01;
                 float4 col = CloudBakeTex.SampleLevel(samplerCloudBakeTex, uvw, 0);
                 return col;
             }
@@ -119,7 +120,7 @@ Shader "Hidden/Clouds"
 
                 for (int step = 0; step < mNumStepsLight; step ++)
                 {
-                    float density = sampleDensity2(p, 0);
+                    float density = sampleDensity2(p, _Time.x);
                     totalDensity += max(0, density * stepSize);
                     p += dirToLight * stepSize;
                 }
@@ -237,7 +238,7 @@ Shader "Hidden/Clouds"
                             break;
                         }
                     #else
-                    float density = sampleDensity2(rayPos,_Time.x);
+                    float density = sampleDensity2(rayPos, _Time.x);
                     if (density > 0)
                     {
                         float lightTransmittance = lightmarch(rayPos);

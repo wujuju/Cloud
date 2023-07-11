@@ -26,12 +26,12 @@ MonoBehaviour:
     computeShader: {fileID: 7200000, guid: 81619b6e193c1b24caf2c4e9632d3a63, type: 3}
     resolution: {x: 512, y: 64, z: 512}
     name: VolumeCloud
-    isUseBake: 0
+    isUseBake: 1
     mCloudTestParams: {x: 0.9, y: 7.29, z: 0.64}
     mRTScale: 1
     mNumStepsLight: 8
     mNumStepsSDF: 2000
-    mRayOffsetStrength: 10
+    mRayOffsetStrength: 9.19
     BlueNoise: {fileID: 2800000, guid: 6d82457f96ba8449597922c106f17caa, type: 3}
     mCloudScale: 0.6
     mDensityMultiplier: 0.82
@@ -44,7 +44,7 @@ MonoBehaviour:
     mDetailNoiseWeights: {x: 2.57, y: 0.89, z: 1.37}
     mDetailOffset: {x: 130.23, y: 0, z: 0}
     mLightAbsorptionThroughCloud: 1.05
-    mLightAbsorptionTowardSun: 1.09
+    mLightAbsorptionTowardSun: 1.6
     mDarknessThreshold: 0.28
     forwardScattering: 0.72
     backScattering: 0.33
@@ -53,6 +53,7 @@ MonoBehaviour:
     mTimeScale: 1
     mBaseSpeed: 0.5
     mDetailSpeed: 1
+    mBakeCloudSpeed: 7.97
     mColA: {r: 0.8901961, g: 0.9647059, b: 1, a: 1}
     mColB: {r: 0.44313726, g: 0.6431373, b: 0.8, a: 1}
 --- !u!114 &11400000

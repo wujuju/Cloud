@@ -1,4 +1,3 @@
-
 float remap(float v, float minOld, float maxOld, float minNew, float maxNew)
 {
     return minNew + (v - minOld) * (maxNew - minNew) / (maxOld - minOld);
@@ -60,6 +59,7 @@ float mDetailNoiseScale;
 float3 mShapeOffset;
 float3 mDetailOffset;
 float mTimeScale;
+float mBakeCloudSpeed;
 
 
 float sampleDensity2(float3 rayPos, float timex)
@@ -70,10 +70,11 @@ float sampleDensity2(float3 rayPos, float timex)
     const float offsetSpeed = 1 / 100.0;
 
     // Calculate texture sample positions
+    float time = timex * mTimeScale;
     float3 size = mBoundsMax - mBoundsMin;
     float3 boundsCentre = (mBoundsMin + mBoundsMax) * .5;
     float3 uvw = (size * .5 + rayPos) * baseScale * mCloudScale;
-    float3 shapeSamplePos = uvw + mShapeOffset * offsetSpeed;
+    float3 shapeSamplePos = uvw + mShapeOffset * offsetSpeed + float3(time, time * 0.1, time * 0.2) * mBaseSpeed;
 
     // Calculate falloff at along x/z edges of the cloud container
     const float containerEdgeFadeDst = 50;
@@ -99,7 +100,8 @@ float sampleDensity2(float3 rayPos, float timex)
     if (baseShapeDensity > 0)
     {
         // Sample detail noise
-        float3 detailSamplePos = uvw * mDetailNoiseScale + mDetailOffset * offsetSpeed;
+        float3 detailSamplePos = uvw * mDetailNoiseScale + mDetailOffset * offsetSpeed + + float3(
+            time * .4, -time, time * 0.1) * mDetailSpeed;
         float4 detailNoise = DetailNoiseTex.SampleLevel(samplerDetailNoiseTex, detailSamplePos, mipLevel);
         float3 normalizedDetailWeights = mDetailNoiseWeights / dot(mDetailNoiseWeights, 1);
         float detailFBM = dot(detailNoise, normalizedDetailWeights);
