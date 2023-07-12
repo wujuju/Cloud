@@ -1,11 +1,12 @@
 using System;
 using System.Reflection;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Serialization;
 
-public class VolumeCloud : ScriptableRendererFeature
+public class VolumeCloudRenderFeature : ScriptableRendererFeature
 {
     public CloudSettings cloudSettings = new CloudSettings();
     CustomRenderPass m_ScriptablePass;
@@ -14,7 +15,7 @@ public class VolumeCloud : ScriptableRendererFeature
     public override void Create()
     {
         m_ScriptablePass = new CustomRenderPass(cloudSettings);
-        m_ScriptablePass.renderPassEvent = RenderPassEvent.AfterRenderingSkybox;
+        m_ScriptablePass.renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
     }
 
     // Here you can inject one or multiple render passes in the renderer.
@@ -27,44 +28,53 @@ public class VolumeCloud : ScriptableRendererFeature
     class CustomRenderPass : ScriptableRenderPass
     {
         private CloudSettings cloudSettings;
-        RenderTargetHandle tempRTHandle;
+
+        int downSampleDepthRT;
+        int downSampleColorRT;
         RenderTargetIdentifier blitSrc;
 
         public CustomRenderPass(CloudSettings sets)
         {
-            var noise = FindObjectOfType<NoiseGenerator>();
-            noise?.UpdateNoise();
-            var weatherMapGen = FindObjectOfType<WeatherMap>();
-            weatherMapGen?.UpdateMap();
             cloudSettings = sets;
-            cloudSettings.UpdateBuff();
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            RenderTextureDescriptor rtDesc = renderingData.cameraData.cameraTargetDescriptor;
-            cmd.GetTemporaryRT(tempRTHandle.id, rtDesc);
-
+            var noise = FindObjectOfType<NoiseGenerator>();
+            var weatherMapGen = FindObjectOfType<WeatherMap>();
+            noise.UpdateNoise();
+            weatherMapGen.UpdateMap();
             blitSrc = renderingData.cameraData.renderer.cameraColorTarget;
+            downSampleDepthRT = Shader.PropertyToID("_DownSampleDepthTex");
+            downSampleColorRT = Shader.PropertyToID("_DownSampleColorTex");
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
             CommandBuffer cmd = CommandBufferPool.Get(cloudSettings.name);
-            RenderTargetIdentifier tempRT = tempRTHandle.Identifier();
-            cloudSettings.UpdateBuff();
-            cmd.SetGlobalTexture("_MainTex", blitSrc);
-            cmd.Blit(blitSrc, tempRT, CloudSettings.Material);
-            cmd.Blit(tempRT, blitSrc);
 
+            var scale = 1.0f / cloudSettings.mRTScale;
+            var rtSize = new Vector2Int((int)(Screen.width * scale), (int)(Screen.height * scale));
+            RenderTextureDescriptor rtDesc = renderingData.cameraData.cameraTargetDescriptor;
+            cmd.GetTemporaryRT(downSampleDepthRT, rtSize.x, rtSize.y, 0, FilterMode.Point, RenderTextureFormat.RFloat);
+            cmd.GetTemporaryRT(downSampleColorRT, rtSize.x, rtSize.y, 0, FilterMode.Bilinear, rtDesc.colorFormat);
+
+            cloudSettings.UpdateBuff();
+            cmd.Blit(null, downSampleDepthRT, CloudSettings.Material, 1);
+            cmd.Blit(blitSrc, downSampleColorRT, CloudSettings.Material, 0);
+            cmd.Blit(downSampleColorRT, blitSrc, CloudSettings.Material, 2);
+            
             context.ExecuteCommandBuffer(cmd);
+            cmd.ReleaseTemporaryRT(downSampleDepthRT);
+            cmd.ReleaseTemporaryRT(downSampleColorRT);
             cmd.Clear();
             CommandBufferPool.Release(cmd);
         }
 
         public override void OnCameraCleanup(CommandBuffer cmd)
         {
-            cmd.ReleaseTemporaryRT(tempRTHandle.id);
+            cmd.ReleaseTemporaryRT(downSampleDepthRT);
+            cmd.ReleaseTemporaryRT(downSampleColorRT);
         }
     }
 
@@ -101,6 +111,7 @@ public class VolumeCloud : ScriptableRendererFeature
         [Range(100, 3000)] public float mNumStepsSDF = 2000;
         public float mRayOffsetStrength = 9.19f;
         public Texture2D BlueNoise;
+        [HideInInspector] public Vector2 mBlueNoiseUV;
 
         [Header(headerDecoration + "Base Shape" + headerDecoration)]
         public float mCloudScale = 0.6f;
@@ -186,6 +197,9 @@ public class VolumeCloud : ScriptableRendererFeature
             mBoundsMin = container.position - container.localScale / 2;
             mBoundsMax = container.position + container.localScale / 2;
             mPhaseParams = new Vector4(forwardScattering, backScattering, baseBrightness, phaseFactor);
+
+            mBlueNoiseUV = new Vector2((float)(Screen.width * 1.0 / mRTScale / BlueNoise.width),
+                (float)(Screen.height * 1f / mRTScale / BlueNoise.height));
             SetComputeShaderConstant(GetType(), this);
 
             PrecomputeCloud();
@@ -195,7 +209,7 @@ public class VolumeCloud : ScriptableRendererFeature
         {
             if (isInitBake && CloudBakeTex)
                 return;
-            CheckOrCreateLUT(ref CloudBakeTex, resolution, RenderTextureFormat.ARGB32, TextureWrapMode.Clamp);
+            CheckOrCreateLUT(ref CloudBakeTex, resolution, RenderTextureFormat.RGB111110Float, TextureWrapMode.Clamp);
             int index = computeShader.FindKernel("CSMain");
             computeShader.SetTexture(index, Shader.PropertyToID("Result"), CloudBakeTex);
             Dispatch(computeShader, index, resolution);

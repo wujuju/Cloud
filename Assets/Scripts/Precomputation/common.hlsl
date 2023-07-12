@@ -60,6 +60,7 @@ float3 mShapeOffset;
 float3 mDetailOffset;
 float mTimeScale;
 float mBakeCloudSpeed;
+float2 mBlueNoiseUV;
 
 
 float sampleDensity2(float3 rayPos, float timex)

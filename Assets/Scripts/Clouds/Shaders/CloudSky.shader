@@ -1,55 +1,59 @@
 Shader "Hidden/Clouds"
 {
-
     Properties
     {
-        _MainTex ("Texture", 2D) = "white" {}
+        _MainTex("Texture", any) = "" {}
     }
+    HLSLINCLUDE
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+
+    struct appdata
+    {
+        float4 vertex : POSITION;
+        float2 uv : TEXCOORD0;
+    };
+
+    struct v2f
+    {
+        float4 pos : SV_POSITION;
+        float2 uv : TEXCOORD0;
+        float3 viewVector : TEXCOORD1;
+    };
+
+    v2f vert(appdata v)
+    {
+        v2f o;
+        o.pos = TransformObjectToHClip(v.vertex);
+        o.uv = v.uv;
+        return o;
+    }
+    ENDHLSL
     SubShader
     {
-
-        // No culling or depth
         Cull Off ZWrite Off ZTest Always
 
         Pass
         {
             HLSLPROGRAM
-            #pragma vertex vert
+            #pragma vertex vert2
             #pragma fragment frag
             #pragma multi_compile _ BAKE
             #pragma multi_compile _ DEBUG_MODE
 
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/Scripts/Precomputation/common.hlsl"
 
-            // vertex input: position, UV
-            struct appdata
-            {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct v2f
-            {
-                float4 pos : SV_POSITION;
-                float2 uv : TEXCOORD0;
-                float3 viewVector : TEXCOORD1;
-            };
-
-            v2f vert(appdata v)
+            v2f vert2(appdata v)
             {
                 v2f output;
                 output.pos = TransformObjectToHClip(v.vertex);
                 output.uv = v.uv;
-                // Camera space matches OpenGL convention where cam forward is -z. In unity forward is positive z.
-                // (https://docs.unity3d.com/ScriptReference/Camera-cameraToWorldMatrix.html)
                 float3 viewVector = mul(unity_CameraInvProjection, float4(v.uv * 2 - 1, 0, -1));
                 output.viewVector = mul(unity_CameraToWorld, float4(viewVector, 0));
                 return output;
             }
 
-            sampler2D _MainTex;
             // Debug settings:
             int debugViewMode;
             int debugGreyscale;
@@ -60,23 +64,11 @@ Shader "Hidden/Clouds"
             float viewerSize;
 
 
-            float2 squareUV(float2 uv)
-            {
-                float width = _ScreenParams.x;
-                float height = _ScreenParams.y;
-                //float minDim = min(width, height);
-                float scale = 1000;
-                float x = uv.x * width;
-                float y = uv.y * height;
-                return float2(x / scale, y / scale);
-            }
-
-
             // Henyey-Greenstein
             float hg(float a, float g)
             {
                 float g2 = g * g;
-                return (1 - g2) / (4 * 3.1415 * pow(1 + g2 - 2 * g * (a), 1.5));
+                return (1.0 - g2) / (4.0 * 3.1415 * pow(1.0 + g2 - 2.0 * g * a, 1.5));
             }
 
             float phase(float a)
@@ -106,7 +98,7 @@ Shader "Hidden/Clouds"
                 return col;
             }
 
-            float lightmarch(float3 p)
+            float3 lightmarch(float3 p)
             {
                 //获取灯光信息
                 Light mainLight = GetMainLight();
@@ -127,8 +119,10 @@ Shader "Hidden/Clouds"
 
                 transmittance = beer(totalDensity * mLightAbsorptionTowardSun);
 
-                float clampedTransmittance = mDarknessThreshold + transmittance * (1 - mDarknessThreshold);
-                return clampedTransmittance;
+                float3 cloudColor = lerp(mColA, mainLight.color, saturate(transmittance * 0.86));
+                cloudColor = lerp(mColB, cloudColor, saturate(pow(transmittance * 0.82, 3)));
+
+                return mDarknessThreshold + transmittance * (1 - mDarknessThreshold) * cloudColor;
             }
 
 
@@ -169,6 +163,9 @@ Shader "Hidden/Clouds"
                 }
             }
 
+            TEXTURE2D_X_FLOAT(_DownSampleDepthTex);
+            SAMPLER(sampler_DownSampleDepthTex);
+
             float4 frag(v2f i) : SV_Target
             {
                 #if DEBUG_MODE == 1
@@ -192,8 +189,8 @@ Shader "Hidden/Clouds"
                 float3 rayDir = i.viewVector / viewLength;
 
                 // Depth and cloud container intersection info:
-                // float nonlin_depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_CameraDepthTexture, i.uv);
-                float nonlin_depth = SampleSceneDepth(i.uv);
+                float nonlin_depth = SAMPLE_DEPTH_TEXTURE(_DownSampleDepthTex, sampler_DownSampleDepthTex, i.uv);
+                // float nonlin_depth = SampleSceneDepth(i.uv);
                 float depth = LinearEyeDepth(nonlin_depth, _ZBufferParams) * viewLength;
                 float2 rayToContainerInfo = rayBoxDst(mBoundsMin, mBoundsMax, rayPos, 1 / rayDir);
                 float dstToBox = rayToContainerInfo.x;
@@ -203,7 +200,7 @@ Shader "Hidden/Clouds"
                 float3 entryPoint = rayPos + rayDir * dstToBox;
 
                 // random starting offset (makes low-res results noisy rather than jagged/glitchy, which is nicer)
-                float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, squareUV(i.uv * 3), 0);
+                float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, i.uv * mBlueNoiseUV, 0);
                 randomOffset *= mRayOffsetStrength;
 
                 // Phase function makes clouds brighter around sun
@@ -241,7 +238,7 @@ Shader "Hidden/Clouds"
                     float density = sampleDensity2(rayPos, _Time.x);
                     if (density > 0)
                     {
-                        float lightTransmittance = lightmarch(rayPos);
+                        float3 lightTransmittance = lightmarch(rayPos);
                         lightEnergy += density * stepSize * transmittance * lightTransmittance * phaseVal;
                         transmittance *= exp(-density * stepSize * mLightAbsorptionThroughCloud);
                         // Early exit
@@ -255,23 +252,52 @@ Shader "Hidden/Clouds"
                     dstTravelled += stepSize;
                 }
 
+                return float4(lightEnergy, transmittance);
+            }
+            ENDHLSL
+        }
 
-                // Composite sky + background
-                float3 skyColBase = lerp(mColA, mColB, sqrt(abs(saturate(rayDir.y))));
-                float3 backgroundCol = tex2D(_MainTex, i.uv);
-                float dstFog = 1 - exp(-max(0, depth) * 8 * .0001);
-                float3 sky = dstFog * skyColBase;
-                backgroundCol = backgroundCol * (1 - dstFog) + sky;
+        Pass
+        {
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment farg
 
-                // Sun
-                float focusedEyeCos = pow(saturate(cosAngle), mCloudTestParams.x);
-                float sun = saturate(hg(focusedEyeCos, .9995)) * transmittance;
+            float farg(v2f i) : SV_Target
+            {
+                float2 texelSize = 0.5 * (1.0 / _ScreenParams.xy);
+                float2 taps[4] = {
+                    float2(i.uv + float2(-1, -1) * texelSize),
+                    float2(i.uv + float2(-1, 1) * texelSize),
+                    float2(i.uv + float2(1, -1) * texelSize),
+                    float2(i.uv + float2(1, 1) * texelSize)
+                };
 
-                // Add clouds
-                float3 cloudCol = lightEnergy * mainLight.color;
-                float3 col = backgroundCol * transmittance + cloudCol;
-                col = saturate(col) * (1 - sun) + mainLight.color * sun;
-                return float4(col, 0);
+                float depth1 = SampleSceneDepth(taps[0]);
+                float depth2 = SampleSceneDepth(taps[1]);
+                float depth3 = SampleSceneDepth(taps[2]);
+                float depth4 = SampleSceneDepth(taps[3]);
+
+                float result = min(depth1, min(depth2, min(depth3, depth4)));
+                return result;
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+//            最终的颜色 = (shader计算的颜色*SrcFactor) + (屏幕已有的颜色*One)
+            Blend One SrcAlpha
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment farg
+
+            TEXTURE2D_X_FLOAT(_DownSampleColorTex);
+            SAMPLER(sampler_DownSampleColorTex);
+
+            float4 farg(v2f i) : SV_Target
+            {
+                return  SAMPLE_TEXTURE2D(_DownSampleColorTex, sampler_DownSampleColorTex, i.uv);
             }
             ENDHLSL
         }

@@ -59,8 +59,9 @@ float sdf(float3 p, float uv, float num)
             WorldDir.y = sinTheta * sinPhi;
             WorldDir.z = cosPhi;
             float dstInsideBox = rayBoxDst(mBoundsMin, mBoundsMax, p, WorldDir).y;
-            float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, squareUV(uv * 3), 0);
-            float step = 5 + randomOffset * mRayOffsetStrength;
+            // float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, squareUV(uv * 3), 0);
+            // float step = 5 + randomOffset * mRayOffsetStrength;
+            float step = 11;
             while (step < dstInsideBox)
             {
                 float density = sampleDensity2(p + WorldDir * step, 0);
@@ -76,7 +77,7 @@ float sdf(float3 p, float uv, float num)
     return 1;
 }
 
-[numthreads(8,8,1)]
+[numthreads(8,8,8)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     float w, h, d;
