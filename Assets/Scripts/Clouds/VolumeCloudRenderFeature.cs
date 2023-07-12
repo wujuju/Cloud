@@ -15,7 +15,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
     public override void Create()
     {
         m_ScriptablePass = new CustomRenderPass(cloudSettings);
-        m_ScriptablePass.renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
+        m_ScriptablePass.renderPassEvent = RenderPassEvent.AfterRenderingSkybox;
     }
 
     // Here you can inject one or multiple render passes in the renderer.
@@ -56,14 +56,19 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             var scale = 1.0f / cloudSettings.mRTScale;
             var rtSize = new Vector2Int((int)(Screen.width * scale), (int)(Screen.height * scale));
             RenderTextureDescriptor rtDesc = renderingData.cameraData.cameraTargetDescriptor;
-            cmd.GetTemporaryRT(downSampleDepthRT, rtSize.x, rtSize.y, 0, FilterMode.Point, RenderTextureFormat.RFloat);
             cmd.GetTemporaryRT(downSampleColorRT, rtSize.x, rtSize.y, 0, FilterMode.Bilinear, rtDesc.colorFormat);
 
             cloudSettings.UpdateBuff();
-            cmd.Blit(null, downSampleDepthRT, CloudSettings.Material, 1);
+            if (cloudSettings.mRTScale > 1)
+            {
+                cmd.GetTemporaryRT(downSampleDepthRT, rtSize.x, rtSize.y, 0, FilterMode.Point,
+                    RenderTextureFormat.RFloat);
+                cmd.Blit(null, downSampleDepthRT, CloudSettings.Material, 1);
+            }
+
             cmd.Blit(blitSrc, downSampleColorRT, CloudSettings.Material, 0);
             cmd.Blit(downSampleColorRT, blitSrc, CloudSettings.Material, 2);
-            
+
             context.ExecuteCommandBuffer(cmd);
             cmd.ReleaseTemporaryRT(downSampleDepthRT);
             cmd.ReleaseTemporaryRT(downSampleColorRT);
@@ -172,16 +177,20 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
 
         public void UpdateBuff()
         {
+            var noise = FindObjectOfType<NoiseGenerator>();
+            var weatherMapGen = FindObjectOfType<WeatherMap>();
+            if (noise == null || weatherMapGen == null)
+                return;
             var material = Material;
             if (isUseBake)
                 material.EnableKeyword("BAKE");
             else
                 material.DisableKeyword("BAKE");
 
-            var noise = FindObjectOfType<NoiseGenerator>();
-            var weatherMapGen = FindObjectOfType<WeatherMap>();
-            if (noise == null || weatherMapGen == null)
-                return;
+            if (mRTScale > 1)
+                material.EnableKeyword("USE_DOWN_TEX");
+            else
+                material.DisableKeyword("USE_DOWN_TEX");
 #if UNITY_EDITOR
             noise.UpdateNoise();
             weatherMapGen.UpdateMap();

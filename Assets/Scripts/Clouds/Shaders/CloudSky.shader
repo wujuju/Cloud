@@ -38,6 +38,7 @@ Shader "Hidden/Clouds"
             #pragma vertex vert2
             #pragma fragment frag
             #pragma multi_compile _ BAKE
+            #pragma multi_compile _ USE_DOWN_TEX
             #pragma multi_compile _ DEBUG_MODE
 
 
@@ -162,9 +163,10 @@ Shader "Hidden/Clouds"
                     }
                 }
             }
-
+            #if USE_DOWN_TEX
             TEXTURE2D_X_FLOAT(_DownSampleDepthTex);
             SAMPLER(sampler_DownSampleDepthTex);
+            #endif
 
             float4 frag(v2f i) : SV_Target
             {
@@ -183,13 +185,18 @@ Shader "Hidden/Clouds"
                     }
                 }
                 #endif
-                // Create ra
+                // Create ray
                 float3 rayPos = _WorldSpaceCameraPos;
                 float viewLength = length(i.viewVector);
                 float3 rayDir = i.viewVector / viewLength;
 
                 // Depth and cloud container intersection info:
+                #if USE_DOWN_TEX
                 float nonlin_depth = SAMPLE_DEPTH_TEXTURE(_DownSampleDepthTex, sampler_DownSampleDepthTex, i.uv);
+                #else
+                float nonlin_depth = SampleSceneDepth(i.uv);
+                #endif
+
                 // float nonlin_depth = SampleSceneDepth(i.uv);
                 float depth = LinearEyeDepth(nonlin_depth, _ZBufferParams) * viewLength;
                 float2 rayToContainerInfo = rayBoxDst(mBoundsMin, mBoundsMax, rayPos, 1 / rayDir);
@@ -286,7 +293,7 @@ Shader "Hidden/Clouds"
 
         Pass
         {
-//            最终的颜色 = (shader计算的颜色*SrcFactor) + (屏幕已有的颜色*One)
+            //最终的颜色 = (shader计算的颜色*SrcFactor) + (屏幕已有的颜色*One)
             Blend One SrcAlpha
             HLSLPROGRAM
             #pragma vertex vert
@@ -297,7 +304,7 @@ Shader "Hidden/Clouds"
 
             float4 farg(v2f i) : SV_Target
             {
-                return  SAMPLE_TEXTURE2D(_DownSampleColorTex, sampler_DownSampleColorTex, i.uv);
+                return SAMPLE_TEXTURE2D(_DownSampleColorTex, sampler_DownSampleColorTex, i.uv);
             }
             ENDHLSL
         }
