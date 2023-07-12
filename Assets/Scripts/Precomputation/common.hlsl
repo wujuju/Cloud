@@ -116,3 +116,51 @@ float sampleDensity2(float3 rayPos, float timex)
     }
     return 0;
 }
+
+
+
+// Debug settings:
+int debugViewMode;
+int debugGreyscale;
+int debugShowAllChannels;
+float debugNoiseSliceDepth;
+float4 debugChannelWeight;
+float debugTileAmount;
+float viewerSize;
+
+float4 debugDrawNoise(float2 uv)
+{
+    float4 channels = 0;
+    float3 samplePos = float3(uv.x, uv.y, debugNoiseSliceDepth);
+
+    if (debugViewMode == 1)
+    {
+        channels = NoiseTex.SampleLevel(samplerNoiseTex, samplePos, 0);
+    }
+    else if (debugViewMode == 2)
+    {
+        channels = DetailNoiseTex.SampleLevel(samplerDetailNoiseTex, samplePos, 0);
+    }
+    else if (debugViewMode == 3)
+    {
+        channels = WeatherMap.SampleLevel(samplerWeatherMap, samplePos.xy, 0);
+    }
+
+
+    if (debugShowAllChannels)
+    {
+        return channels;
+    }
+    else
+    {
+        float4 maskedChannels = (channels * debugChannelWeight);
+        if (debugGreyscale || debugChannelWeight.w == 1)
+        {
+            return dot(maskedChannels, 1);
+        }
+        else
+        {
+            return maskedChannels;
+        }
+    }
+}

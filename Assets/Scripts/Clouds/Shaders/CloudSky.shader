@@ -39,7 +39,6 @@ Shader "Hidden/Clouds"
             #pragma fragment frag
             #pragma multi_compile _ BAKE
             #pragma multi_compile _ USE_DOWN_TEX
-            #pragma multi_compile _ DEBUG_MODE
 
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -54,16 +53,6 @@ Shader "Hidden/Clouds"
                 output.viewVector = mul(unity_CameraToWorld, float4(viewVector, 0));
                 return output;
             }
-
-            // Debug settings:
-            int debugViewMode;
-            int debugGreyscale;
-            int debugShowAllChannels;
-            float debugNoiseSliceDepth;
-            float4 debugChannelWeight;
-            float debugTileAmount;
-            float viewerSize;
-
 
             // Henyey-Greenstein
             float hg(float a, float g)
@@ -127,42 +116,6 @@ Shader "Hidden/Clouds"
             }
 
 
-            float4 debugDrawNoise(float2 uv)
-            {
-                float4 channels = 0;
-                float3 samplePos = float3(uv.x, uv.y, debugNoiseSliceDepth);
-
-                if (debugViewMode == 1)
-                {
-                    channels = NoiseTex.SampleLevel(samplerNoiseTex, samplePos, 0);
-                }
-                else if (debugViewMode == 2)
-                {
-                    channels = DetailNoiseTex.SampleLevel(samplerDetailNoiseTex, samplePos, 0);
-                }
-                else if (debugViewMode == 3)
-                {
-                    channels = WeatherMap.SampleLevel(samplerWeatherMap, samplePos.xy, 0);
-                }
-
-
-                if (debugShowAllChannels)
-                {
-                    return channels;
-                }
-                else
-                {
-                    float4 maskedChannels = (channels * debugChannelWeight);
-                    if (debugGreyscale || debugChannelWeight.w == 1)
-                    {
-                        return dot(maskedChannels, 1);
-                    }
-                    else
-                    {
-                        return maskedChannels;
-                    }
-                }
-            }
             #if USE_DOWN_TEX
             TEXTURE2D_X_FLOAT(_DownSampleDepthTex);
             SAMPLER(sampler_DownSampleDepthTex);
@@ -170,21 +123,6 @@ Shader "Hidden/Clouds"
 
             float4 frag(v2f i) : SV_Target
             {
-                #if DEBUG_MODE == 1
-                if (debugViewMode != 0)
-                {
-                    float width = _ScreenParams.x;
-                    float height = _ScreenParams.y;
-                    float minDim = min(width, height);
-                    float x = i.uv.x * width;
-                    float y = (1 - i.uv.y) * height;
-                    if (x < minDim * viewerSize && y < minDim * viewerSize)
-                    {
-                        return debugDrawNoise(float2(x / (minDim * viewerSize) * debugTileAmount,
-                                                     y / (minDim * viewerSize) * debugTileAmount));
-                    }
-                }
-                #endif
                 // Create ray
                 float3 rayPos = _WorldSpaceCameraPos;
                 float viewLength = length(i.viewVector);
@@ -305,6 +243,34 @@ Shader "Hidden/Clouds"
             float4 farg(v2f i) : SV_Target
             {
                 return SAMPLE_TEXTURE2D(_DownSampleColorTex, sampler_DownSampleColorTex, i.uv);
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Blend One Zero
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment farg
+            #include "Assets/Scripts/Precomputation/common.hlsl"
+
+            float4 farg(v2f i) : SV_Target
+            {
+                if (debugViewMode != 0)
+                {
+                    float width = _ScreenParams.x;
+                    float height = _ScreenParams.y;
+                    float minDim = min(width, height);
+                    float x = i.uv.x * width;
+                    float y = (1 - i.uv.y) * height;
+                    if (x < minDim * viewerSize && y < minDim * viewerSize)
+                    {
+                        return debugDrawNoise(float2(x / (minDim * viewerSize) * debugTileAmount,
+                                                     y / (minDim * viewerSize) * debugTileAmount));
+                    }
+                }
+                return 0;
             }
             ENDHLSL
         }

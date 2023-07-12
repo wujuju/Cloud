@@ -68,7 +68,8 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
 
             cmd.Blit(blitSrc, downSampleColorRT, CloudSettings.Material, 0);
             cmd.Blit(downSampleColorRT, blitSrc, CloudSettings.Material, 2);
-
+            if (cloudSettings.isDebug)
+                cmd.Blit(null, blitSrc, CloudSettings.Material, 3);
             context.ExecuteCommandBuffer(cmd);
             cmd.ReleaseTemporaryRT(downSampleDepthRT);
             cmd.ReleaseTemporaryRT(downSampleColorRT);
@@ -100,7 +101,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         [HideInBuffer] public Vector3Int resolution = new Vector3Int(512, 64, 512);
         [HideInInspector, HideInBuffer] public string name = "VolumeCloud";
         [HideInBuffer] public bool isUseBake;
-
+        [HideInInspector, HideInBuffer] public bool isDebug;
 
         const string headerDecoration = " --- ";
 
@@ -316,6 +317,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             var weatherMapGen = FindObjectOfType<WeatherMap>();
 
             int debugModeIndex = 0;
+
             if (noise.viewerEnabled)
             {
                 debugModeIndex = (noise.activeTextureType == NoiseGenerator.CloudNoiseType.Shape) ? 1 : 2;
@@ -328,11 +330,11 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
 
             if (debugModeIndex == 0)
             {
-                material.DisableKeyword("DEBUG_MODE");
+                isDebug = false;
                 return;
             }
 
-            material.EnableKeyword("DEBUG_MODE");
+            isDebug = true;
             material.SetInt("debugViewMode", debugModeIndex);
             material.SetFloat("debugNoiseSliceDepth", noise.viewerSliceDepth);
             material.SetFloat("debugTileAmount", noise.viewerTileAmount);
