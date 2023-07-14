@@ -231,8 +231,8 @@ Shader "Hidden/Clouds"
 
         Pass
         {
-            //最终的颜色 = (shader计算的颜色*SrcFactor) + (屏幕已有的颜色*One)
-            Blend One SrcAlpha
+            //最终的颜色 = (shader计算的颜色*SrcFactor) + (屏幕已有的颜色*DstFactor)
+            Blend One SrcAlpha 
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment farg
@@ -271,6 +271,23 @@ Shader "Hidden/Clouds"
                     }
                 }
                 return 0;
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            //最终的颜色 = (shader计算的颜色*SrcFactor) + (屏幕已有的颜色*DstFactor)
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment farg
+
+            TEXTURE2D_X_FLOAT(_MainTex);
+            SAMPLER(sampler_MainTex);
+
+            float4 farg(v2f i) : SV_Target
+            {
+                return SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
             }
             ENDHLSL
         }

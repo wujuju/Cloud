@@ -3,6 +3,14 @@ float remap(float v, float minOld, float maxOld, float minNew, float maxNew)
     return minNew + (v - minOld) * (maxNew - minNew) / (maxOld - minOld);
 }
 
+
+float basicNoiseComposite(float4 v)
+{
+    float wfbm = v.y * 0.625 + v.z * 0.25 + v.w * 0.125;
+    // cloud shape modeled after the GPU Pro 7 chapter
+    return remap(v.x, wfbm - 1.0, 1.0, 0.0, 1.0);
+}
+
 float2 rayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 invRaydir)
 {
     float3 t0 = (boundsMin - rayOrigin) * invRaydir;
@@ -60,8 +68,21 @@ float3 mShapeOffset;
 float3 mDetailOffset;
 float mTimeScale;
 float mBakeCloudSpeed;
+float mNumStepsCloud;
 float2 mBlueNoiseUV;
 
+float4 cloudColorCompute(
+    float2 uv,
+    float blueNoise,
+    inout float cloudZ,
+    float3 worldDir)
+{
+    
+}
+
+float sampleDensity3(float3 rayPos, float timex)
+{
+}
 
 float sampleDensity2(float3 rayPos, float timex)
 {
@@ -74,8 +95,8 @@ float sampleDensity2(float3 rayPos, float timex)
     float time = timex * mTimeScale;
     float3 size = mBoundsMax - mBoundsMin;
     float3 boundsCentre = (mBoundsMin + mBoundsMax) * .5;
-    float3 uvw = (size * .5 + rayPos) * baseScale * mCloudScale;
-    float3 shapeSamplePos = uvw + mShapeOffset * offsetSpeed + float3(time, time * 0.1, time * 0.2) * mBaseSpeed;
+    float3 uvw = rayPos * baseScale;
+    float3 shapeSamplePos = uvw + float3(time, time * 0.1, time * 0.2) * mBaseSpeed;
 
     // Calculate falloff at along x/z edges of the cloud container
     const float containerEdgeFadeDst = 50;
@@ -96,7 +117,7 @@ float sampleDensity2(float3 rayPos, float timex)
     float4 shapeNoise = NoiseTex.SampleLevel(samplerNoiseTex, shapeSamplePos, mipLevel);
     float4 normalizedShapeWeights = mShapeNoiseWeights / dot(mShapeNoiseWeights, 1);
     float shapeFBM = dot(shapeNoise, normalizedShapeWeights) * heightGradient;
-    float baseShapeDensity = shapeFBM + mDensityOffset * .1;
+    float baseShapeDensity = shapeFBM + mDensityOffset * .01;
     // Save sampling from detail tex if shape density <= 0
     if (baseShapeDensity > 0)
     {
@@ -116,7 +137,6 @@ float sampleDensity2(float3 rayPos, float timex)
     }
     return 0;
 }
-
 
 
 // Debug settings:

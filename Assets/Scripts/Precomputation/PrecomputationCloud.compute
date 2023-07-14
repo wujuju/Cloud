@@ -1,6 +1,9 @@
 #pragma kernel CSMain
+#pragma kernel CSBasicNoise
+#pragma kernel CSDetailNoise
 
 RWTexture3D<float4> Result;
+RWTexture3D<float> Result2;
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include "common.hlsl"
 #define PI          3.14159265358979323846
@@ -90,4 +93,47 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     if (color.r > 0)
         color.b = lightmarch(p);
     Result[id] = color;
+}
+
+#include "../Clouds/Shaders/cloud_noise_common.hlsl"
+#define kBasicFrequency 4.0
+#define kBasicNoiseMixFactor 0.5
+
+[numthreads(8,8,1)]
+void CSBasicNoise(uint3 id : SV_DispatchThreadID)
+{
+    float w, h, d;
+    Result.GetDimensions(w, h, d);
+    
+    const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
+
+    float pfbm = lerp(1.0, perlinfbm(uvw, kBasicFrequency, 7), kBasicNoiseMixFactor);
+    pfbm = abs(pfbm * 2.0 - 1.0); // billowy perlin noise
+    
+    float4 col = 0.0;
+    col.g += worleyFbm(uvw, kBasicFrequency * 1.0);
+    col.b += worleyFbm(uvw, kBasicFrequency * 2.0);
+    col.a += worleyFbm(uvw, kBasicFrequency * 4.0);
+
+    col.r += remap(pfbm, 0., 1., col.g, 1.0); // perlin-worley
+    Result[id] = basicNoiseComposite(col);
+}
+
+#define kDetailFrequency 8.0
+
+[numthreads(8,8,1)]
+void CSDetailNoise(uint3 id : SV_DispatchThreadID)
+{
+    float w, h, d;
+    Result2.GetDimensions(w, h, d);
+    
+    const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
+
+    float detailNoise = 
+         worleyFbm(uvw, kDetailFrequency * 1.0) * 0.625 +
+         worleyFbm(uvw, kDetailFrequency * 2.0) * 0.250 +
+         worleyFbm(uvw, kDetailFrequency * 4.0) * 0.125;
+
+    
+    Result2[id] = detailNoise;
 }
