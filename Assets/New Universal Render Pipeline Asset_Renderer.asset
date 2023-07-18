@@ -61,49 +61,78 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   cloudSettings:
+    isNewNoise: 1
     isInitBake: 1
-    mMapSize: {x: 4357.5044, y: 249.86116, z: 5190.4883}
-    mBoundsMin: {x: -2178.7522, y: -124.93058, z: -2595.2441}
-    mBoundsMax: {x: 2178.7522, y: 124.93058, z: 2595.2441}
+    mMapSize: {x: 1467.307, y: 36.83682, z: 1050.072}
+    mBoundsMin: {x: -732.5535, y: 1.681591, z: -525.036}
+    mBoundsMax: {x: 734.7535, y: 38.51841, z: 525.036}
     WeatherMap: {fileID: 0}
     NoiseTex: {fileID: 0}
     DetailNoiseTex: {fileID: 0}
-    mPhaseParams: {x: 0.72, y: 0.33, z: 1, w: 0.63}
+    mPhaseParams: {x: 0.78, y: 0.25, z: 0.29, w: 0.6}
     CloudBakeTex: {fileID: 0}
+    NewBasicNoiseTex: {fileID: 0}
+    NewDetailNoiseTex: {fileID: 0}
     computeShader: {fileID: 7200000, guid: 81619b6e193c1b24caf2c4e9632d3a63, type: 3}
     resolution: {x: 256, y: 128, z: 256}
     name: VolumeCloud
     isUseBake: 0
+    isDebug: 0
+    noise3D:
+      m_OverrideState: 0
+      m_Value: {fileID: 11700000, guid: a3063aef13c7b8c458ae9da7e0a75d5f, type: 2}
+      dimension: 3
+    noise3D2:
+      m_OverrideState: 0
+      m_Value: {fileID: 11700000, guid: 11ded9c9d808b4365b4b40a5198368be, type: 2}
+      dimension: 3
     mCloudTestParams: {x: 0.9, y: 7.29, z: 0.64}
-    mRTScale: 2
+    mRTScale: 1
     mNumStepsLight: 8
+    mNumStepsCloud: 64
     mNumStepsSDF: 2000
-    mRayOffsetStrength: 9.19
+    mRayOffsetStrength: 2
     BlueNoise: {fileID: 2800000, guid: 6d82457f96ba8449597922c106f17caa, type: 3}
-    mBlueNoiseUV: {x: 1.7207031, y: 0.7167969}
-    mCloudScale: 0.6
-    mDensityMultiplier: 0.82
-    mDensityOffset: -3.64
+    CurlNoise: {fileID: 2800000, guid: ebdb721a0ed8a184db9a95da8310ebc3, type: 3}
+    NewWeatherMap: {fileID: 2800000, guid: 23f2298b201e91044a5aae6f3999ed36, type: 3}
+    mBlueNoiseUV: {x: 3.7460938, y: 1.671875}
+    mCloudScale: 1
+    mDensityMultiplier: 1.2
+    mDensityOffset: -10.9
     mShapeOffset: {x: 29.4, y: -47.87, z: 1.11}
     mHeightOffset: {x: 0, y: 0}
-    mShapeNoiseWeights: {x: 2.51, y: 0.89, z: 1.37, w: 0.57}
-    mDetailNoiseScale: 4
-    mDetailNoiseWeight: 1.5
-    mDetailNoiseWeights: {x: 2.57, y: 0.89, z: 1.37}
-    mDetailOffset: {x: 130.23, y: 0, z: 0}
-    mLightAbsorptionThroughCloud: 1.05
-    mLightAbsorptionTowardSun: 1.6
-    mDarknessThreshold: 0.28
-    forwardScattering: 0.72
-    backScattering: 0.33
-    baseBrightness: 1
-    phaseFactor: 0.63
+    mShapeNoiseWeights: {x: 4.63, y: 19.9, z: -3.18, w: -18.4}
+    mDetailNoiseScale: 2.82
+    mDetailNoiseWeight: 6.4
+    mDetailNoiseWeights: {x: 2.06, y: 0, z: 0}
+    mDetailOffset: {x: -10.9, y: 0, z: 0}
+    mLightAbsorptionThroughCloud: 0.3
+    mLightAbsorptionTowardSun: 0.16
+    mDarknessThreshold: 0
+    forwardScattering: 0.78
+    backScattering: 0.25
+    baseBrightness: 0.29
+    phaseFactor: 0.6
     mTimeScale: 1
     mBaseSpeed: 0.5
     mDetailSpeed: 1
     mBakeCloudSpeed: 7.97
-    mColA: {r: 0.8901961, g: 0.9647059, b: 1, a: 1}
-    mColB: {r: 0.44313726, g: 0.6431373, b: 0.8, a: 1}
+    mColA: {r: 1, g: 0.09989874, b: 0, a: 1}
+    mColB: {r: 0.1346278, g: 0.2401553, b: 0.3572768, a: 1}
+    mCloudDensity: 1.1
+    mCloudSpeed: 0.543
+    mCloudBasicNoiseScale: 0.45
+    mCloudDetailNoiseScale: 0.593
+    mCloudPowderPow: 3.29
+    mCloudCoverage: 1.03
+    mCloudPowderScale: 35.9
+    mCloudShadingSunLightScale: 5.6
+    mCloudGodRayScale: 23.3
+    mCloudMultiScatterExtinction: 0.298
+    mCloudEnableGroundContribution: 1
+    mCloudWeatherUVScale: 1
+    mCloudAlbedo: {x: 1, y: 1, z: 1}
+    mCloudDirection: {x: -0.84366393, y: 0, z: -0.5368717}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -54,7 +54,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             var rtSize = new Vector2Int((int)(Screen.width * scale), (int)(Screen.height * scale));
             RenderTextureDescriptor rtDesc = renderingData.cameraData.cameraTargetDescriptor;
             cmd.GetTemporaryRT(downSampleColorRT, rtSize.x, rtSize.y, 0, FilterMode.Bilinear,
-                RenderTextureFormat.Default);
+                RenderTextureFormat.DefaultHDR);
 
             cloudSettings.UpdateBuff();
             if (cloudSettings.mRTScale > 1)
@@ -86,6 +86,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
     [System.Serializable]
     public class CloudSettings
     {
+        [HideInBuffer] public bool isNewNoise;
         [HideInInspector, HideInBuffer] public bool isInitBake;
         [HideInInspector] public Vector3 mMapSize;
         [HideInInspector] public Vector3 mBoundsMin;
@@ -104,6 +105,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         [HideInInspector, HideInBuffer] public bool isDebug;
 
         [HideInBuffer] public TextureParameter noise3D;
+        [HideInBuffer] public TextureParameter noise3D2;
         const string headerDecoration = " --- ";
 
         [Header(headerDecoration + "Main" + headerDecoration)]
@@ -112,13 +114,16 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         [Header(headerDecoration + "Optimize" + headerDecoration)] [Range(1, 4)]
         public int mRTScale = 1;
 
-        [Header(headerDecoration + "March settings" + headerDecoration)] [Range(1, 20)]
+        [Header(headerDecoration + "March settings" + headerDecoration)] [Range(6, 20)]
         public int mNumStepsLight = 8;
-        public int mNumStepsCloud = 128;
+
+        [Range(8, 64)] public int mNumStepsCloud = 8;
 
         [Range(100, 3000)] public float mNumStepsSDF = 2000;
         public float mRayOffsetStrength = 9.19f;
         public Texture2D BlueNoise;
+        public Texture2D CurlNoise;
+        public Texture2D NewWeatherMap;
         [HideInInspector] public Vector2 mBlueNoiseUV;
 
         [Header(headerDecoration + "Base Shape" + headerDecoration)]
@@ -161,9 +166,25 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         [Range(1, 20)] public float mBakeCloudSpeed = 10;
 
         [Header(headerDecoration + "Sky" + headerDecoration)]
-        public Color mColA = new Color(227 / 255f, 246 / 255f, 255 / 255f);
+        public Color mColA = new Color (1, 0.09989874f, 0, 1);
+        public Color mColB = new Color (0.1346278f, 0.2401553f, 0.3572768f, 1);
 
-        public Color mColB = new Color(113 / 255f, 164 / 255f, 204 / 255f);
+        [Header(headerDecoration + "New" + headerDecoration)] [Range(0.1f, 5)]
+        public float mCloudDensity = 1;
+
+        [Range(0.1f, 1)] public float mCloudSpeed = 0.05f;
+        [Range(0.01f, 1)] public float mCloudBasicNoiseScale = 0.3f;
+        [Range(0.01f, 1)] public float mCloudDetailNoiseScale = 0.6f;
+        [Range(0.01f, 10)] public float mCloudPowderPow = 1f;
+        [Range(0, 2)] public float mCloudCoverage = 0.5f;
+        [Range(0.01f, 100)] public float mCloudPowderScale = 1f;
+        [Range(0.1f, 10)] public float mCloudShadingSunLightScale = 1f;
+        [Range(0, 100)] public float mCloudGodRayScale = 50;
+        [Range(0.1f, 1)] public float mCloudMultiScatterExtinction = 0.175f;
+        [Range(0, 1)] public int mCloudEnableGroundContribution = 1;
+        [Range(0.01f, 1)] public float mCloudWeatherUVScale = 0.02f;
+        public Vector3 mCloudAlbedo = Vector3.one;
+        public Vector3 mCloudDirection = new Vector3(0.8f, 0.0f, 0.4f);
 
 
         static Material _Material;
@@ -199,13 +220,6 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             weatherMapGen.UpdateMap();
             SetDebugParams();
 #endif
-            NoiseTex = noise.shapeTexture;
-            DetailNoiseTex = noise.detailTexture;
-            WeatherMap = weatherMapGen.weatherMap;
-
-            NoiseTex = NewBasicNoiseTex;
-            DetailNoiseTex = NewDetailNoiseTex;
-            
             Transform container = GameObject.Find("Container").transform;
             mMapSize = container.localScale;
 
@@ -215,9 +229,30 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
 
             mBlueNoiseUV = new Vector2((float)(Screen.width * 1.0 / mRTScale / BlueNoise.width),
                 (float)(Screen.height * 1f / mRTScale / BlueNoise.height));
+
+            mCloudDirection = mCloudDirection.normalized;
+
             SetComputeShaderConstant(GetType(), this);
-            // material.SetTexture("NoiseTex", noise3D.value);
-            PrecomputeCloud();
+
+            if (isNewNoise)
+            {
+                NoiseTex = NewBasicNoiseTex;
+                DetailNoiseTex = NewDetailNoiseTex;
+                material.SetTexture("NoiseTex", noise3D.value);
+                material.SetTexture("DetailNoiseTex", noise3D2.value);
+                material.SetTexture("WeatherMap", NewWeatherMap);
+                material.EnableKeyword("NEW_RENDER");
+            }
+            else
+            {
+                material.DisableKeyword("NEW_RENDER");
+                NoiseTex = noise.shapeTexture;
+                DetailNoiseTex = noise.detailTexture;
+                WeatherMap = weatherMapGen.weatherMap;
+            }
+
+            if (isUseBake)
+                PrecomputeCloud();
         }
 
         private void PrecomputeCloud()
@@ -236,11 +271,11 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             PrecomputeBasicNoiseCloud();
             PrecomputeDetailNoiseCloud();
         }
-        
+
         private void PrecomputeBasicNoiseCloud()
         {
             var size = Vector3Int.one * 128;
-            CheckOrCreateLUT(ref NewBasicNoiseTex, size, RenderTextureFormat.RGB111110Float, TextureWrapMode.Clamp);
+            CheckOrCreateLUT(ref NewBasicNoiseTex, size, RenderTextureFormat.ARGBHalf, TextureWrapMode.Repeat);
             int index = computeShader.FindKernel("CSBasicNoise");
             computeShader.SetTexture(index, Shader.PropertyToID("Result"), NewBasicNoiseTex);
             Dispatch(computeShader, index, size);
@@ -249,7 +284,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         private void PrecomputeDetailNoiseCloud()
         {
             var size = Vector3Int.one * 64;
-            CheckOrCreateLUT(ref NewDetailNoiseTex, size, RenderTextureFormat.R16, TextureWrapMode.Clamp);
+            CheckOrCreateLUT(ref NewDetailNoiseTex, size, RenderTextureFormat.R16, TextureWrapMode.Repeat);
             int index = computeShader.FindKernel("CSDetailNoise");
             computeShader.SetTexture(index, Shader.PropertyToID("Result2"), NewDetailNoiseTex);
             Dispatch(computeShader, index, size);
@@ -306,6 +341,11 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
                 else if (field.FieldType == typeof(Color))
                 {
                     currMaterial.SetColor(field.Name, (Color)value);
+                    size += 4;
+                }
+                else if (field.FieldType == typeof(ColorParameter))
+                {
+                    currMaterial.SetColor(field.Name, ((ColorParameter)value).value);
                     size += 4;
                 }
                 else if (field.FieldType == typeof(Texture2D))
