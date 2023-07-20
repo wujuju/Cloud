@@ -165,7 +165,7 @@ float sampleDensity2(float3 rayPos, float timex)
 
 float sampleDensity4(float3 rayPos)
 {
-    return sampleDensity2(rayPos,_Time.y);
+    // return sampleDensity2(rayPos,_Time.y);
     float3 boundsCentre = (mBoundsMax + mBoundsMin) * 0.5;
     float3 size = mBoundsMax - mBoundsMin;
     float speedShape = _Time.y * 0.05;

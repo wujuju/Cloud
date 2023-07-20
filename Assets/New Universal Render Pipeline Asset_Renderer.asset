@@ -113,8 +113,8 @@ MonoBehaviour:
     backScattering: 0.25
     baseBrightness: 0.29
     phaseFactor: 0.6
-    mTimeScale: 1
-    mBaseSpeed: 0.5
+    mTimeScale: 0.08
+    mBaseSpeed: 0.39
     mDetailSpeed: 1
     mBakeCloudSpeed: 7.97
     mColA: {r: 1, g: 0.09989874, b: 0, a: 1}
