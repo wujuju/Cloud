@@ -1,0 +1,142 @@
+#pragma kernel CSMain
+#pragma kernel CSBasicNoise
+#pragma kernel CSDetailNoise
+
+RWTexture3D<float4> Result;
+RWTexture3D<float> Result2;
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+#include "common.hlsl"
+#define PI          3.14159265358979323846
+
+float2 squareUV(float2 uv)
+{
+    float width = _ScreenParams.x;
+    float height = _ScreenParams.y;
+    //float minDim = min(width, height);
+    float scale = 1000;
+    float x = uv.x * width;
+    float y = uv.y * height;
+    return float2(x / scale, y / scale);
+}
+
+float lightmarch(float3 p)
+{
+    //获取灯光信息
+    Light mainLight = GetMainLight();
+    float3 dirToLight = mainLight.direction;
+    float dstInsideBox = rayBoxDst(_boundsMin, _boundsMax, p, 1 / dirToLight).y;
+
+    float stepSize = dstInsideBox / _numStepsLight;
+    p += dirToLight * stepSize * .5;
+    float totalDensity = 0;
+
+    for (int step = 0; step < _numStepsLight; step ++)
+    {
+        totalDensity += max(0, sampleDensity4(p) * stepSize);
+        p += dirToLight * stepSize;
+    }
+
+    float transmittance = exp(-totalDensity * _lightAbsorptionTowardSun);
+    return _darknessThreshold + transmittance * (1 - _darknessThreshold);
+}
+
+float sdf(float3 p, float uv, float num)
+{
+    #define SQRTSAMPLECOUNT 8
+    const float sqrtSample = float(SQRTSAMPLECOUNT);
+    float3 WorldDir = 0;
+    for (int k = 0; k < num; ++k)
+    {
+        float i = 0.5f + float(k / SQRTSAMPLECOUNT);
+        float j = 0.5f + float(k - float((k / SQRTSAMPLECOUNT) * SQRTSAMPLECOUNT));
+        {
+            float randA = i / sqrtSample;
+            float randB = j / sqrtSample;
+            float theta = 2.0f * PI * randA;
+            float phi = acos(1.0f - 2.0f * randB);
+            float cosPhi = cos(phi);
+            float sinPhi = sin(phi);
+            float cosTheta = cos(theta);
+            float sinTheta = sin(theta);
+            WorldDir.x = cosTheta * sinPhi;
+            WorldDir.y = sinTheta * sinPhi;
+            WorldDir.z = cosPhi;
+            float dstInsideBox = rayBoxDst(_boundsMin, _boundsMax, p, WorldDir).y;
+            // float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, uv * _blueNoiseUV, 0);
+            // float dstTravelled = randomOffset * _rayOffsetStrength;
+            float stepSize = dstInsideBox / _numStepsCloud;
+            float dstTravelled=stepSize;
+            for (int i = 0; i < _numStepsCloud; ++i)
+            {
+                float density = sampleDensity4(p + WorldDir * dstTravelled);
+                if (density > 0)
+                {
+                    return dstTravelled / _numStepsSDF;
+                }
+                dstTravelled+=stepSize;
+            }
+        }
+    }
+
+    return 1;
+}
+
+[numthreads(8,8,8)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    float w, h, d;
+    Result.GetDimensions(w, h, d);
+    float4 color = float4(0, 0, 0, 1);
+    const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
+    const float3 p = _boundsMin + uvw * (_boundsMax - _boundsMin);
+    _numStepsLight=8;
+    _numStepsCloud=32;
+    color.r = sampleDensity4(p);
+    color.g = sdf(p, uvw.xy, 64);
+    if (color.r > 0)
+        color.b = lightmarch(p);
+    Result[id] = color;
+}
+
+#include "../Shaders/cloud_noise_common.hlsl"
+#define kBasicFrequency 4.0
+#define kBasicNoiseMixFactor 0.5
+
+[numthreads(8,8,1)]
+void CSBasicNoise(uint3 id : SV_DispatchThreadID)
+{
+    float w, h, d;
+    Result.GetDimensions(w, h, d);
+    
+    const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
+
+    float pfbm = lerp(1.0, perlinfbm(uvw, kBasicFrequency, 7), kBasicNoiseMixFactor);
+    pfbm = abs(pfbm * 2.0 - 1.0); // billowy perlin noise
+    
+    float4 col = 0.0;
+    col.g += worleyFbm(uvw, kBasicFrequency * 1.0);
+    col.b += worleyFbm(uvw, kBasicFrequency * 2.0);
+    col.a += worleyFbm(uvw, kBasicFrequency * 4.0);
+
+    col.r += remap(pfbm, 0., 1., col.g, 1.0); // perlin-worley
+    Result[id] = basicNoiseComposite(col);
+}
+
+#define kDetailFrequency 8.0
+
+[numthreads(8,8,1)]
+void CSDetailNoise(uint3 id : SV_DispatchThreadID)
+{
+    float w, h, d;
+    Result2.GetDimensions(w, h, d);
+    
+    const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
+
+    float detailNoise = 
+         worleyFbm(uvw, kDetailFrequency * 1.0) * 0.625 +
+         worleyFbm(uvw, kDetailFrequency * 2.0) * 0.250 +
+         worleyFbm(uvw, kDetailFrequency * 4.0) * 0.125;
+
+    
+    Result2[id] = detailNoise;
+}

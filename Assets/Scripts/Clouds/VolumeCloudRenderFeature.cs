@@ -255,6 +255,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             int index = computeShader.FindKernel("CSMain");
             computeShader.SetTexture(index, Shader.PropertyToID("Result"), CloudBakeTex);
             Common.Dispatch(cmd, computeShader, index, resolution);
+            cmd.SetGlobalTexture("CloudBakeTex", CloudBakeTex);
             isInitBake = true;
         }
 
@@ -291,7 +292,8 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             var material = Material;
             var noise = FindObjectOfType<NoiseGenerator>();
             var weatherMapGen = FindObjectOfType<WeatherMap>();
-
+            if (noise == null)
+                return;
             int debugModeIndex = 0;
 
             if (noise.viewerEnabled)
