@@ -55,7 +55,7 @@ public class WeatherMap : MonoBehaviour
         noiseCompute.SetVector("minMax", minMax);
         noiseCompute.SetVector("mCloudTestParams", testParams);
 
-        VolumeCloudRenderFeature.Dispatch(noiseCompute, 0, rtSize);
+        Common.Dispatch(noiseCompute, 0, rtSize);
 
         // noiseCompute.SetTexture (1, "Result", weatherMap);
         //noiseCompute.Dispatch (1, numThreadGroups, numThreadGroups, 1);

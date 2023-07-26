@@ -166,26 +166,8 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         [Range(1, 20)] public float mBakeCloudSpeed = 10;
 
         [Header(headerDecoration + "Sky" + headerDecoration)]
-        public Color mColA = new Color (1, 0.09989874f, 0, 1);
-        public Color mColB = new Color (0.1346278f, 0.2401553f, 0.3572768f, 1);
-
-        [Header(headerDecoration + "New" + headerDecoration)] [Range(0.1f, 5)]
-        public float mCloudDensity = 1;
-
-        [Range(0.1f, 1)] public float mCloudSpeed = 0.05f;
-        [Range(0.01f, 1)] public float mCloudBasicNoiseScale = 0.3f;
-        [Range(0.01f, 1)] public float mCloudDetailNoiseScale = 0.6f;
-        [Range(0.01f, 10)] public float mCloudPowderPow = 1f;
-        [Range(0, 2)] public float mCloudCoverage = 0.5f;
-        [Range(0.01f, 100)] public float mCloudPowderScale = 1f;
-        [Range(0.1f, 10)] public float mCloudShadingSunLightScale = 1f;
-        [Range(0, 100)] public float mCloudGodRayScale = 50;
-        [Range(0.1f, 1)] public float mCloudMultiScatterExtinction = 0.175f;
-        [Range(0, 1)] public int mCloudEnableGroundContribution = 1;
-        [Range(0.01f, 1)] public float mCloudWeatherUVScale = 0.02f;
-        public Vector3 mCloudAlbedo = Vector3.one;
-        public Vector3 mCloudDirection = new Vector3(0.8f, 0.0f, 0.4f);
-
+        public Color mColA = new Color(1, 0.1010586f, 0, 1);
+        public Color mColB = new Color(0.1165883f, 0.1901837f, 0.2704979f, 1);
 
         static Material _Material;
 
@@ -230,8 +212,6 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             mBlueNoiseUV = new Vector2((float)(Screen.width * 1.0 / mRTScale / BlueNoise.width),
                 (float)(Screen.height * 1f / mRTScale / BlueNoise.height));
 
-            mCloudDirection = mCloudDirection.normalized;
-
             SetComputeShaderConstant(GetType(), this);
 
             if (isNewNoise)
@@ -259,10 +239,11 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         {
             if (isInitBake && CloudBakeTex)
                 return;
-            CheckOrCreateLUT(ref CloudBakeTex, resolution, RenderTextureFormat.RGB111110Float, TextureWrapMode.Clamp);
+            Common.CheckOrCreateLUT(ref CloudBakeTex, resolution, RenderTextureFormat.RGB111110Float,
+                TextureWrapMode.Clamp, FilterMode.Bilinear);
             int index = computeShader.FindKernel("CSMain");
             computeShader.SetTexture(index, Shader.PropertyToID("Result"), CloudBakeTex);
-            Dispatch(computeShader, index, resolution);
+            Common.Dispatch(computeShader, index, resolution);
             isInitBake = true;
         }
 
@@ -275,19 +256,21 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         private void PrecomputeBasicNoiseCloud()
         {
             var size = Vector3Int.one * 128;
-            CheckOrCreateLUT(ref NewBasicNoiseTex, size, RenderTextureFormat.ARGBHalf, TextureWrapMode.Repeat);
+            Common.CheckOrCreateLUT(ref NewBasicNoiseTex, size, RenderTextureFormat.ARGBHalf, TextureWrapMode.Repeat,
+                FilterMode.Bilinear);
             int index = computeShader.FindKernel("CSBasicNoise");
             computeShader.SetTexture(index, Shader.PropertyToID("Result"), NewBasicNoiseTex);
-            Dispatch(computeShader, index, size);
+            Common.Dispatch(computeShader, index, size);
         }
 
         private void PrecomputeDetailNoiseCloud()
         {
             var size = Vector3Int.one * 64;
-            CheckOrCreateLUT(ref NewDetailNoiseTex, size, RenderTextureFormat.R16, TextureWrapMode.Repeat);
+            Common.CheckOrCreateLUT(ref NewDetailNoiseTex, size, RenderTextureFormat.R16, TextureWrapMode.Repeat,
+                FilterMode.Bilinear);
             int index = computeShader.FindKernel("CSDetailNoise");
             computeShader.SetTexture(index, Shader.PropertyToID("Result2"), NewDetailNoiseTex);
-            Dispatch(computeShader, index, size);
+            Common.Dispatch(computeShader, index, size);
         }
 
         #region 常量缓冲区
@@ -417,39 +400,6 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
     }
 
     #region 工具
-
-    public static void CheckOrCreateLUT(ref RenderTexture targetLUT, Vector3Int size, RenderTextureFormat format,
-        TextureWrapMode mode)
-    {
-        if (targetLUT == null || (targetLUT.width != size.x || targetLUT.height != size.y))
-        {
-            if (targetLUT != null) targetLUT.Release();
-
-            var rt = new RenderTexture(size.x, size.y, 0,
-                format, RenderTextureReadWrite.Linear);
-            if (size.z > 0)
-            {
-                rt.dimension = TextureDimension.Tex3D;
-                rt.volumeDepth = size.z;
-            }
-
-            rt.useMipMap = false;
-            rt.filterMode = FilterMode.Bilinear;
-            rt.enableRandomWrite = true;
-            rt.wrapMode = mode;
-            rt.Create();
-            targetLUT = rt;
-        }
-    }
-
-    public static void Dispatch(ComputeShader cs, int kernel, Vector3Int lutSize)
-    {
-        if (lutSize.z == 0)
-            lutSize.z = 1;
-        cs.GetKernelThreadGroupSizes(kernel, out var threadNumX, out var threadNumY, out var threadNumZ);
-        cs.Dispatch(kernel, lutSize.x / (int)threadNumX,
-            lutSize.y / (int)threadNumY, lutSize.z);
-    }
 
     sealed class HideInBuffer : Attribute
     {

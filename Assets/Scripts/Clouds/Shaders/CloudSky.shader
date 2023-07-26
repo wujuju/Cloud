@@ -39,7 +39,6 @@ Shader "Hidden/Clouds"
             #pragma fragment frag
             #pragma multi_compile _ BAKE
             #pragma multi_compile _ USE_DOWN_TEX
-            #pragma multi_compile _ NEW_RENDER
 
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -135,7 +134,6 @@ Shader "Hidden/Clouds"
                 float nonlin_depth = SampleSceneDepth(i.uv);
                 #endif
 
-                // float nonlin_depth = SampleSceneDepth(i.uv);
                 float depth = LinearEyeDepth(nonlin_depth, _ZBufferParams) * viewLength;
                 float2 rayToContainerInfo = rayBoxDst(mBoundsMin, mBoundsMax, rayPos, 1 / rayDir);
                 float dstToBox = rayToContainerInfo.x;
@@ -143,7 +141,6 @@ Shader "Hidden/Clouds"
 
                 // point of intersection with the cloud container
                 float3 entryPoint = rayPos + rayDir * dstToBox;
-
                 // random starting offset (makes low-res results noisy rather than jagged/glitchy, which is nicer)
                 float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, i.uv * mBlueNoiseUV, 0);
 
@@ -151,28 +148,11 @@ Shader "Hidden/Clouds"
                 Light mainLight = GetMainLight();
                 float cosAngle = dot(rayDir, mainLight.direction);
                 float phaseVal = phase(cosAngle);
-
                 float dstLimit = min(depth - dstToBox, dstInsideBox);
-
-
-                // March through volume:
                 float stepSize = dstLimit / mNumStepsCloud;
-
-                stepSize = exp(3.5) * 0.06;
-
                 float dstTravelled = randomOffset * mRayOffsetStrength;
-
                 float transmittance = 1;
                 float3 lightEnergy = 0;
-
-                // #define  NEW_RENDER 1
-
-                #if NEW_RENDER
-                float3 rayHitPos = 0;
-                float rayHitPosWeight = 0.0;
-                float3 scatteredLight = 0;
-                float3 size = mBoundsMax - mBoundsMin;
-                #endif
 
                 for (int i = 0; i < mNumStepsCloud; ++i)
                 {
@@ -192,99 +172,7 @@ Shader "Hidden/Clouds"
                         {
                             break;
                         }
-                    #elif  NEW_RENDER2
-                    float normalizeHeight = (rayPos.y - mBoundsMin.y) / size.y;
-                    float stepCloudDensity = sampleDensity3(rayPos, _Time.x);
-                    // Add ray march pos, so we can do some average fading or atmosphere sample effect.
-                    rayHitPos += rayPos * transmittance;
-                    rayHitPosWeight += transmittance;
-
-                    float3 atmosphereTransmittance = 1;
-                    float3 upScaleColor = 1;
-                    if (stepCloudDensity > 0.)
-                    {
-                        float opticalDepth = stepCloudDensity * stepSize;
-                        // beer's lambert.
-                        // Siggraph 2017's new step transmittance formula.
-                        float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7);
-                         transmittance *= stepTransmittance;
-                        // Compute powder term.
-                        float powderEffect;
-                        {
-                            float depthProbability = pow(
-                                clamp(stepCloudDensity * 8.0 * mCloudPowderPow, 0.0, mCloudPowderScale),
-                                remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
-                            depthProbability += 0.05;
-                            float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.22, 0.1, 1.0), 0.8);
-                            powderEffect = powderEffectNew(depthProbability, verticalProbability, cosAngle);
-                        }
-
-                        float3 lightTransmittance = lightmarch(rayPos);
-                        lightEnergy += transmittance * lightTransmittance * powderEffect;
-                        // Amount of sunlight that reaches the sample point through the cloud 
-                        // is the combination of ambient light and attenuated direct light.
-
-                        // float3 sunlightTerm = atmosphereTransmittance * mCloudShadingSunLightScale * mainLight.color;
-                        // float3 ambientLit = upScaleColor * powderEffect * (1.0 - mainLight.direction.y) *
-                        //     atmosphereTransmittance;
-                        // float sigmaS = stepCloudDensity;
-                        // float sigmaE = max(sigmaS, 1e-8f);
-                        //
-                        //
-                        // float3 scatteringCoefficients[kMsCount];
-                        // float extinctionCoefficients[kMsCount];
-                        // float3 albedo = mCloudAlbedo;
-                        // scatteringCoefficients[0] = sigmaS * albedo;
-                        // extinctionCoefficients[0] = sigmaE;
-                        // float MsExtinctionFactor = mCloudMultiScatterExtinction;
-                        // float MsScatterFactor = mCloudMultiScatterScatter;
-                        // int ms;
-                        // for (ms = 1; ms < kMsCount; ms++)
-                        // {
-                        //     extinctionCoefficients[ms] = extinctionCoefficients[ms - 1] * MsExtinctionFactor;
-                        //     scatteringCoefficients[ms] = scatteringCoefficients[ms - 1] * MsScatterFactor;
-                        //
-                        //     MsExtinctionFactor *= MsExtinctionFactor;
-                        //     MsScatterFactor *= MsScatterFactor;
-                        // }
-
-                        // for (ms = kMsCount - 1; ms >= 0; ms--) // Should terminate at 0
-                        // {
-                        //     float sunVisibilityTerm = 1;
-                        //     float3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * powderEffect;
-                        //
-                        //     if (mCloudEnableGroundContribution != 0)
-                        //     {
-                        //         float skyVisibilityTerm = 1;
-                        //         sunSkyLuminance += skyVisibilityTerm * ambientLit;
-                        //     }
-                        //
-                        //     if (ms == 0)
-                        //     {
-                        //         sunSkyLuminance += 0;
-                        //     }
-                        //
-                        //     float3 sactterLitStep = sunSkyLuminance * scatteringCoefficients[ms];
-                        //
-                        //     // See slide 28 at http://www.frostbite.com/2015/08/physically-based-unified-volumetric-rendering-in-frostbite/
-                        //     float3 stepScatter = transmittance * (sactterLitStep - sactterLitStep * stepTransmittance) /
-                        //         max(1e-4f, extinctionCoefficients[ms]);
-                        //     scatteredLight += stepScatter;
-                        //     if (ms == 0)
-                        //     {
-                        //         // Beer's law.
-                        //         transmittance *= stepTransmittance;
-                        //     }
-                        // }
-
-                        if (transmittance <= 0.001)
-                        {
-                            break;
-                        }
-                        
-                    }
                     #else
-                    // float density = sampleDensity2(rayPos, _Time.x);
                     if (dstTravelled < dstLimit)
                     {
                         float density = sampleDensity4(rayPos);
@@ -292,7 +180,6 @@ Shader "Hidden/Clouds"
                         {
                             float3 lightTransmittance = lightmarch(rayPos);
                             lightEnergy += density * stepSize * transmittance * lightTransmittance * phaseVal;
-                            // lightEnergy += density * stepSize * transmittance;
                             transmittance *= exp(-density * stepSize * mLightAbsorptionThroughCloud);
                             // Early exit
                             if (transmittance < 0.01)
@@ -302,11 +189,8 @@ Shader "Hidden/Clouds"
                         }
                     }
                     #endif
-
                     dstTravelled += stepSize;
                 }
-
-
                 return float4(lightEnergy, transmittance);
             }
             ENDHLSL

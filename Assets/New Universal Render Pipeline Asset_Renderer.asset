@@ -95,17 +95,17 @@ MonoBehaviour:
     BlueNoise: {fileID: 2800000, guid: 6d82457f96ba8449597922c106f17caa, type: 3}
     CurlNoise: {fileID: 2800000, guid: ebdb721a0ed8a184db9a95da8310ebc3, type: 3}
     NewWeatherMap: {fileID: 2800000, guid: 23f2298b201e91044a5aae6f3999ed36, type: 3}
-    mBlueNoiseUV: {x: 3.7460938, y: 1.671875}
+    mBlueNoiseUV: {x: 3.9257812, y: 1.609375}
     mCloudScale: 1
-    mDensityMultiplier: 1.2
+    mDensityMultiplier: 1.4
     mDensityOffset: -10.9
     mShapeOffset: {x: 29.4, y: -47.87, z: 1.11}
     mHeightOffset: {x: 0, y: 0}
-    mShapeNoiseWeights: {x: 4.63, y: 19.9, z: -3.18, w: -18.4}
+    mShapeNoiseWeights: {x: 3.7, y: 20.73, z: -3.8, w: -17.03}
     mDetailNoiseScale: 2.82
     mDetailNoiseWeight: 6.4
-    mDetailNoiseWeights: {x: 2.06, y: 0, z: 0}
-    mDetailOffset: {x: -10.9, y: 0, z: 0}
+    mDetailNoiseWeights: {x: 14.57, y: -0.48, z: 0}
+    mDetailOffset: {x: -16.33, y: 0, z: 0}
     mLightAbsorptionThroughCloud: 0.3
     mLightAbsorptionTowardSun: 0.16
     mDarknessThreshold: 0
@@ -117,22 +117,8 @@ MonoBehaviour:
     mBaseSpeed: 0.39
     mDetailSpeed: 1
     mBakeCloudSpeed: 7.97
-    mColA: {r: 1, g: 0.09989874, b: 0, a: 1}
-    mColB: {r: 0.1346278, g: 0.2401553, b: 0.3572768, a: 1}
-    mCloudDensity: 1.1
-    mCloudSpeed: 0.543
-    mCloudBasicNoiseScale: 0.45
-    mCloudDetailNoiseScale: 0.593
-    mCloudPowderPow: 3.29
-    mCloudCoverage: 1.03
-    mCloudPowderScale: 35.9
-    mCloudShadingSunLightScale: 5.6
-    mCloudGodRayScale: 23.3
-    mCloudMultiScatterExtinction: 0.298
-    mCloudEnableGroundContribution: 1
-    mCloudWeatherUVScale: 1
-    mCloudAlbedo: {x: 1, y: 1, z: 1}
-    mCloudDirection: {x: -0.84366393, y: 0, z: -0.5368717}
+    mColA: {r: 1, g: 0.6060061, b: 0, a: 1}
+    mColB: {r: 0.5230064, g: 0.601483, b: 0.6886792, a: 1}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0

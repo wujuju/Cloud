@@ -32,7 +32,7 @@ float lightmarch(float3 p)
 
     for (int step = 0; step < mNumStepsLight; step ++)
     {
-        totalDensity += max(0, sampleDensity2(p, 0) * stepSize);
+        totalDensity += max(0, sampleDensity4(p) * stepSize);
         p += dirToLight * stepSize;
     }
 
@@ -67,7 +67,7 @@ float sdf(float3 p, float uv, float num)
             float step = 11;
             while (step < dstInsideBox)
             {
-                float density = sampleDensity2(p + WorldDir * step, 0);
+                float density = sampleDensity4(p + WorldDir * step);
                 if (density > 0)
                 {
                     return step / mNumStepsSDF;
@@ -88,7 +88,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     float4 color = float4(0, 0, 0, 1);
     const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
     const float3 p = mBoundsMin + uvw * (mBoundsMax - mBoundsMin);
-    color.r = sampleDensity2(p, 0);
+    color.r = sampleDensity4(p);
     color.g = sdf(p, uvw.xy, 64);
     if (color.r > 0)
         color.b = lightmarch(p);

@@ -3,7 +3,6 @@ float remap(float v, float minOld, float maxOld, float minNew, float maxNew)
     return minNew + (v - minOld) * (maxNew - minNew) / (maxOld - minOld);
 }
 
-
 float basicNoiseComposite(float4 v)
 {
     float wfbm = v.y * 0.625 + v.z * 0.25 + v.w * 0.125;
@@ -17,7 +16,6 @@ float2 rayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 in
     float3 t1 = (boundsMax - rayOrigin) * invRaydir;
     float3 tmin = min(t0, t1);
     float3 tmax = max(t0, t1);
-
     float dstA = max(max(tmin.x, tmin.y), tmin.z);
     float dstB = min(tmax.x, min(tmax.y, tmax.z));
 
@@ -109,60 +107,6 @@ float powderEffectNew(float depth, float height, float VoL)
     return depth * height;
 }
 
-float sampleDensity2(float3 rayPos, float timex)
-{
-    // Constants:
-    const int mipLevel = 0;
-    const float baseScale = 2 / 1000.0;
-    const float offsetSpeed = 2.2 / 100.0;
-
-    // Calculate texture sample positions
-    float time = timex * mTimeScale;
-    float3 size = mBoundsMax - mBoundsMin;
-    float3 boundsCentre = (mBoundsMin + mBoundsMax) * .5;
-    float3 uvw = rayPos * baseScale * mCloudScale;
-    float3 shapeSamplePos = uvw + float3(time, time * 0.1, time * 0.2) * mBaseSpeed;
-
-    // Calculate falloff at along x/z edges of the cloud container
-    const float containerEdgeFadeDst = 50;
-    float dstFromEdgeX = min(containerEdgeFadeDst, min(rayPos.x - mBoundsMin.x, mBoundsMax.x - rayPos.x));
-    float dstFromEdgeZ = min(containerEdgeFadeDst, min(rayPos.z - mBoundsMin.z, mBoundsMax.z - rayPos.z));
-    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
-
-    // Calculate height gradient from weather map
-    float2 weatherUV = (rayPos.xz - boundsCentre.xz) / max(size.x, size.z);
-    float weatherMap = WeatherMap.SampleLevel(samplerWeatherMap, weatherUV, mipLevel).x;
-    float gMin = remap(weatherMap.x, 0, 1, 0.1, 0.5);
-    float gMax = remap(weatherMap.x, 0, 1, gMin, 0.9);
-    float heightPercent = (rayPos.y - mBoundsMin.y) / size.y;
-    float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(
-        remap(heightPercent, 1, gMax, 0, 1));
-    heightGradient *= edgeWeight;
-    // Calculate base shape density
-    float4 shapeNoise = NoiseTex.SampleLevel(samplerNoiseTex, shapeSamplePos, mipLevel);
-    float4 normalizedShapeWeights = mShapeNoiseWeights / dot(mShapeNoiseWeights, 1);
-    float shapeFBM = dot(shapeNoise, normalizedShapeWeights) * heightGradient;
-    float baseShapeDensity = shapeFBM + mDensityOffset * .01;
-    // Save sampling from detail tex if shape density <= 0
-    if (baseShapeDensity > 0)
-    {
-        // Sample detail noise
-        float3 detailSamplePos = uvw * mDetailNoiseScale + mDetailOffset * offsetSpeed + + float3(
-            time * .4, -time, time * 0.1) * mDetailSpeed;
-        float4 detailNoise = DetailNoiseTex.SampleLevel(samplerDetailNoiseTex, detailSamplePos, mipLevel);
-        float3 normalizedDetailWeights = mDetailNoiseWeights / dot(mDetailNoiseWeights, 1);
-        float detailFBM = dot(detailNoise, normalizedDetailWeights);
-
-        // Subtract detail noise from base shape (weighted by inverse density so that edges get eroded more than centre)
-        float oneMinusShape = 1 - shapeFBM;
-        float detailErodeWeight = oneMinusShape * oneMinusShape * oneMinusShape;
-        float cloudDensity = baseShapeDensity - (1 - detailFBM) * detailErodeWeight * mDetailNoiseWeight;
-
-        return cloudDensity * mDensityMultiplier * 0.1;
-    }
-    return 0;
-}
-
 float sampleDensity4(float3 rayPos)
 {
     // return sampleDensity2(rayPos,_Time.y);
@@ -213,57 +157,6 @@ float sampleDensity4(float3 rayPos)
     return 0;
 }
 
-float sampleDensity3(float3 rayPos, float timex)
-{
-    // return sampleDensity2(rayPos,timex);
-    const int mipLevel = 0;
-    const float kCoverage = mCloudCoverage;
-    const float kDensity = mCloudDensity;
-    const float3 windDirection = mCloudDirection;
-
-    float3 size = mBoundsMax - mBoundsMin;
-    float normalizeHeight = (rayPos.y - mBoundsMin.y) / size.y;
-    float3 posMeter = rayPos + windDirection * normalizeHeight * 50.0f;
-    float3 posKm = posMeter * 0.001;
-
-    float3 windOffset = (windDirection + float3(0.0, 0.1, 0.0)) * timex * mCloudSpeed;
-
-    float2 sampleUv = posKm.xz * mCloudWeatherUVScale;
-
-    float3 boundsCentre = (mBoundsMax + mBoundsMin) * 0.5;
-    float2 uv = (size.xz * 0.5f + (rayPos.xz - boundsCentre.xz)) / max(size.x, size.z);
-
-    float4 weatherValue = WeatherMap.SampleLevel(samplerWeatherMap, sampleUv, mipLevel);
-    float localCoverage = CurlNoise.SampleLevel(samplerCurlNoise,
-                                                (timex * mCloudSpeed * 50.0 + posMeter.xz) * 0.0001 + 0.5,
-                                                mipLevel).r;
-    localCoverage = saturate(localCoverage * 3.0 - 0.75) * 0.2;
-
-    float coverage = saturate(kCoverage * (localCoverage + weatherValue.x));
-    float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.80, 1.0, 0.2);
-
-    float basicNoise = NoiseTex.SampleLevel(samplerNoiseTex, (posKm + windOffset) * mCloudBasicNoiseScale,
-                                            mipLevel).r;
-    float basicCloudNoise = gradienShape * basicNoise;
-
-    float basicCloudWithCoverage = coverage * remap(basicCloudNoise, 1.0 - coverage, 1, 0, 1);
-
-    float3 sampleDetailNoise = posKm - windOffset * 0.15;
-    float detailNoiseComposite = DetailNoiseTex.SampleLevel(samplerDetailNoiseTex,
-                                                            sampleDetailNoise * mCloudDetailNoiseScale, mipLevel).r;
-    float detailNoiseMixByHeight = 0.2 * lerp(detailNoiseComposite, 1 - detailNoiseComposite,
-                                              saturate(normalizeHeight * 10.0));
-
-    float densityShape = saturate(0.01 + normalizeHeight * 1.15) * kDensity *
-        remap(normalizeHeight, 0.0, 0.1, 0.0, 1.0) *
-        remap(normalizeHeight, 0.8, 1.0, 1.0, 0.0);
-
-    float cloudDensity = remap(basicCloudWithCoverage, detailNoiseMixByHeight, 1.0, 0.0, 1.0);
-
-    return cloudDensity * densityShape;
-}
-
-
 // Debug settings:
 int debugViewMode;
 int debugGreyscale;
@@ -290,7 +183,6 @@ float4 debugDrawNoise(float2 uv)
     {
         channels = WeatherMap.SampleLevel(samplerWeatherMap, samplePos.xy, 0);
     }
-
 
     if (debugShowAllChannels)
     {
