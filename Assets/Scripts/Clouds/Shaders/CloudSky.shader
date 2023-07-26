@@ -64,8 +64,8 @@ Shader "Hidden/Clouds"
             float phase(float a)
             {
                 float blend = .5;
-                float hgBlend = hg(a, mPhaseParams.x) * (1 - blend) + hg(a, -mPhaseParams.y) * blend;
-                return mPhaseParams.z + hgBlend * mPhaseParams.w;
+                float hgBlend = hg(a, _phaseParams.x) * (1 - blend) + hg(a, -_phaseParams.y) * blend;
+                return _phaseParams.z + hgBlend * _phaseParams.w;
             }
 
             float beer(float d)
@@ -81,9 +81,9 @@ Shader "Hidden/Clouds"
 
             float3 bakeDensity(float3 rayPos)
             {
-                float3 size = mBoundsMax - mBoundsMin;
-                float time = _Time.x * mTimeScale;
-                float3 uvw = (rayPos) / size + 0.5f + float3(time, time * 0.1, time * 0.2) * mBakeCloudSpeed * 0.01;
+                float3 size = _boundsMax - _boundsMin;
+                float time = _Time.x * _timeScale;
+                float3 uvw = (rayPos) / size + 0.5f + float3(time, time * 0.1, time * 0.2) * _bakeCloudSpeed * 0.01;
                 float4 col = CloudBakeTex.SampleLevel(samplerCloudBakeTex, uvw, 0);
                 return col;
             }
@@ -93,24 +93,24 @@ Shader "Hidden/Clouds"
                 //获取灯光信息
                 Light mainLight = GetMainLight();
                 float3 dirToLight = mainLight.direction;
-                float dstInsideBox = rayBoxDst(mBoundsMin, mBoundsMax, p, 1 / dirToLight).y;
+                float dstInsideBox = rayBoxDst(_boundsMin, _boundsMax, p, 1 / dirToLight).y;
 
-                float stepSize = dstInsideBox / mNumStepsLight;
+                float stepSize = dstInsideBox / _numStepsLight;
                 p += dirToLight * stepSize * .5;
                 float totalDensity = 0;
 
-                for (int step = 0; step < mNumStepsLight; step++)
+                for (int step = 0; step < _numStepsLight; step++)
                 {
                     totalDensity += max(0, sampleDensity4(p));
                     p += dirToLight * stepSize;
                 }
 
-                float transmittance = exp(-totalDensity * mLightAbsorptionTowardSun);
+                float transmittance = exp(-totalDensity * _lightAbsorptionTowardSun);
 
-                float3 cloudColor = lerp(mColA, mainLight.color, saturate(transmittance * 0.86));
-                cloudColor = lerp(mColB, cloudColor, saturate(pow(transmittance * 0.82, 3)));
+                float3 cloudColor = lerp(_colA, mainLight.color, saturate(transmittance * 0.86));
+                cloudColor = lerp(_colB, cloudColor, saturate(pow(transmittance * 0.82, 3)));
 
-                return mDarknessThreshold + transmittance * (1 - mDarknessThreshold) * cloudColor;
+                return _darknessThreshold + transmittance * (1 - _darknessThreshold) * cloudColor;
             }
 
 
@@ -135,26 +135,26 @@ Shader "Hidden/Clouds"
                 #endif
 
                 float depth = LinearEyeDepth(nonlin_depth, _ZBufferParams) * viewLength;
-                float2 rayToContainerInfo = rayBoxDst(mBoundsMin, mBoundsMax, rayPos, 1 / rayDir);
+                float2 rayToContainerInfo = rayBoxDst(_boundsMin, _boundsMax, rayPos, 1 / rayDir);
                 float dstToBox = rayToContainerInfo.x;
                 float dstInsideBox = rayToContainerInfo.y;
 
                 // point of intersection with the cloud container
                 float3 entryPoint = rayPos + rayDir * dstToBox;
                 // random starting offset (makes low-res results noisy rather than jagged/glitchy, which is nicer)
-                float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, i.uv * mBlueNoiseUV, 0);
+                float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, i.uv * _blueNoiseUV, 0);
 
                 // Phase function makes clouds brighter around sun
                 Light mainLight = GetMainLight();
                 float cosAngle = dot(rayDir, mainLight.direction);
                 float phaseVal = phase(cosAngle);
                 float dstLimit = min(depth - dstToBox, dstInsideBox);
-                float stepSize = dstLimit / mNumStepsCloud;
-                float dstTravelled = randomOffset * mRayOffsetStrength;
+                float stepSize = dstLimit / _numStepsCloud;
+                float dstTravelled = randomOffset * _rayOffsetStrength;
                 float transmittance = 1;
                 float3 lightEnergy = 0;
 
-                for (int i = 0; i < mNumStepsCloud; ++i)
+                for (int i = 0; i < _numStepsCloud; ++i)
                 {
                     rayPos = entryPoint + rayDir * dstTravelled;
 
@@ -180,7 +180,7 @@ Shader "Hidden/Clouds"
                         {
                             float3 lightTransmittance = lightmarch(rayPos);
                             lightEnergy += density * stepSize * transmittance * lightTransmittance * phaseVal;
-                            transmittance *= exp(-density * stepSize * mLightAbsorptionThroughCloud);
+                            transmittance *= exp(-density * stepSize * _lightAbsorptionThroughCloud);
                             // Early exit
                             if (transmittance < 0.01)
                             {

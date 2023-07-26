@@ -20,7 +20,7 @@ uint height;
 uint depth;
 
 
-float4 mCloudTestParams;
+float4 _cloudTestParams;
 
 [numthreads(numThreads,1,1)]
 void Density (int3 id : SV_DispatchThreadID)

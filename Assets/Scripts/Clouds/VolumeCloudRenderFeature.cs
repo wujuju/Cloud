@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -53,10 +54,22 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             var scale = 1.0f / cloudSettings.mRTScale;
             var rtSize = new Vector2Int((int)(Screen.width * scale), (int)(Screen.height * scale));
             RenderTextureDescriptor rtDesc = renderingData.cameraData.cameraTargetDescriptor;
+
             cmd.GetTemporaryRT(downSampleColorRT, rtSize.x, rtSize.y, 0, FilterMode.Bilinear,
                 RenderTextureFormat.DefaultHDR);
 
             cloudSettings.UpdateBuff();
+            // int size = Marshal.SizeOf(typeof(ShaderVariablesClouds));
+            // ComputeBuffer computeBuffer = new ComputeBuffer(1, size); // 这里假设结构体有两个float成员
+            // computeBuffer.SetData(new ShaderVariablesClouds[] { cloudSettings.shaderVariablesClouds });
+            // cmd.SetGlobalBuffer(Shader.PropertyToID("ShaderVariablesClouds"), computeBuffer);
+            Common.SetComputeShaderConstant(cloudSettings.shaderVariablesClouds.GetType(),
+                cloudSettings.shaderVariablesClouds, CloudSettings.Material);
+            // CloudSettings.Material.SetBuffer(Shader.PropertyToID("ShaderVariablesClouds"), computeBuffer);
+            // CloudSettings.Material.SetConstantBuffer(Shader.PropertyToID("ShaderVariablesClouds"), computeBuffer, 0,
+            //     size);
+            // ConstantBuffer.Push(cmd, cloudSettings.shaderVariablesClouds,CloudSettings.Material, Shader.PropertyToID("ShaderVariablesClouds"));
+            // ConstantBuffer.PushGlobal(cmd, cloudSettings.shaderVariablesClouds, Shader.PropertyToID("ShaderVariablesClouds"));
             if (cloudSettings.mRTScale > 1)
             {
                 cmd.GetTemporaryRT(downSampleDepthRT, rtSize.x, rtSize.y, 0, FilterMode.Point,
@@ -86,14 +99,9 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
     [System.Serializable]
     public class CloudSettings
     {
-        [HideInBuffer] public bool isNewNoise;
         [HideInInspector, HideInBuffer] public bool isInitBake;
-        [HideInInspector] public Vector3 mMapSize;
         [HideInInspector] public Vector3 mBoundsMin;
         [HideInInspector] public Vector3 mBoundsMax;
-        [HideInInspector] public RenderTexture WeatherMap;
-        [HideInInspector] public RenderTexture NoiseTex;
-        [HideInInspector] public RenderTexture DetailNoiseTex;
         [HideInInspector] public Vector4 mPhaseParams;
         [HideInInspector] public RenderTexture CloudBakeTex;
         [HideInInspector] public RenderTexture NewBasicNoiseTex;
@@ -122,26 +130,19 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         [Range(100, 3000)] public float mNumStepsSDF = 2000;
         public float mRayOffsetStrength = 9.19f;
         public Texture2D BlueNoise;
-        public Texture2D CurlNoise;
         public Texture2D NewWeatherMap;
         [HideInInspector] public Vector2 mBlueNoiseUV;
 
         [Header(headerDecoration + "Base Shape" + headerDecoration)]
-        public float mCloudScale = 0.6f;
-
         public float mDensityMultiplier = 0.82f;
+
         public float mDensityOffset = -3.64f;
-        public Vector3 mShapeOffset = new Vector3(29.4f, -47.87f, 1.11f);
-        public Vector2 mHeightOffset;
         public Vector4 mShapeNoiseWeights = new Vector4(2.51f, 0.89f, 1.37f, 0.57f);
 
         [Header(headerDecoration + "Detail" + headerDecoration)]
-        public float mDetailNoiseScale = 4;
-
         public float mDetailNoiseWeight = 1.5f;
-        public Vector3 mDetailNoiseWeights = new Vector3(2.57f, 0.89f, 1.37f);
-        public Vector3 mDetailOffset = new Vector3(130.23f, 0);
 
+        public Vector3 mDetailNoiseWeights = new Vector3(2.57f, 0.89f, 1.37f);
 
         [Header(headerDecoration + "Lighting" + headerDecoration)]
         public float mLightAbsorptionThroughCloud = 1.05f;
@@ -161,13 +162,38 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         [Header(headerDecoration + "Animation" + headerDecoration)] [Range(0, 2)]
         public float mTimeScale = 1;
 
-        [Range(0, 2)] public float mBaseSpeed = 0.5f;
-        [Range(0, 2)] public float mDetailSpeed = 1;
         [Range(1, 20)] public float mBakeCloudSpeed = 10;
 
         [Header(headerDecoration + "Sky" + headerDecoration)]
         public Color mColA = new Color(1, 0.1010586f, 0, 1);
+
         public Color mColB = new Color(0.1165883f, 0.1901837f, 0.2704979f, 1);
+        public ShaderVariablesClouds shaderVariablesClouds = new ShaderVariablesClouds();
+
+        public void UpdateBuffer(ref ShaderVariablesClouds cb)
+        {
+            cb._colA = mColA;
+            cb._colB = mColB;
+            cb._blueNoiseUV = mBlueNoiseUV;
+            cb._numStepsCloud = mNumStepsCloud;
+            cb._bakeCloudSpeed = mBakeCloudSpeed;
+            cb._timeScale = mTimeScale;
+            cb._densityMultiplier = mDensityMultiplier;
+            cb._densityOffset = mDensityOffset;
+            cb._numStepsLight = mNumStepsLight;
+            cb._darknessThreshold = mDarknessThreshold;
+            cb._lightAbsorptionTowardSun = mLightAbsorptionTowardSun;
+            cb._lightAbsorptionThroughCloud = mLightAbsorptionThroughCloud;
+            cb._shapeNoiseWeights = mShapeNoiseWeights;
+            cb._detailNoiseWeights = mDetailNoiseWeights;
+            cb._detailNoiseWeight = mDetailNoiseWeight;
+            cb._boundsMax = mBoundsMax;
+            cb._boundsMin = mBoundsMin;
+            cb._numStepsSDF = mNumStepsSDF;
+            cb._phaseParams = mPhaseParams;
+            cb._cloudTestParams = mCloudTestParams;
+            cb._rayOffsetStrength = mRayOffsetStrength;
+        }
 
         static Material _Material;
 
@@ -203,7 +229,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             SetDebugParams();
 #endif
             Transform container = GameObject.Find("Container").transform;
-            mMapSize = container.localScale;
+            // mMapSize = container.localScale;
 
             mBoundsMin = container.position - container.localScale / 2;
             mBoundsMax = container.position + container.localScale / 2;
@@ -212,24 +238,12 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             mBlueNoiseUV = new Vector2((float)(Screen.width * 1.0 / mRTScale / BlueNoise.width),
                 (float)(Screen.height * 1f / mRTScale / BlueNoise.height));
 
-            SetComputeShaderConstant(GetType(), this);
+            this.UpdateBuffer(ref shaderVariablesClouds);
 
-            if (isNewNoise)
-            {
-                NoiseTex = NewBasicNoiseTex;
-                DetailNoiseTex = NewDetailNoiseTex;
-                material.SetTexture("NoiseTex", noise3D.value);
-                material.SetTexture("DetailNoiseTex", noise3D2.value);
-                material.SetTexture("WeatherMap", NewWeatherMap);
-                material.EnableKeyword("NEW_RENDER");
-            }
-            else
-            {
-                material.DisableKeyword("NEW_RENDER");
-                NoiseTex = noise.shapeTexture;
-                DetailNoiseTex = noise.detailTexture;
-                WeatherMap = weatherMapGen.weatherMap;
-            }
+            material.SetTexture("NoiseTex", noise3D.value);
+            material.SetTexture("DetailNoiseTex", noise3D2.value);
+            material.SetTexture("WeatherMap", NewWeatherMap);
+            material.SetTexture("BlueNoise", BlueNoise);
 
             if (isUseBake)
                 PrecomputeCloud();
@@ -249,8 +263,8 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
 
         public void Precompute()
         {
-            PrecomputeBasicNoiseCloud();
-            PrecomputeDetailNoiseCloud();
+            // PrecomputeBasicNoiseCloud();
+            // PrecomputeDetailNoiseCloud();
         }
 
         private void PrecomputeBasicNoiseCloud()
@@ -274,93 +288,6 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         }
 
         #region 常量缓冲区
-
-        int SetComputeShaderConstant(Type structType, object cb)
-        {
-            var currMaterial = Material;
-            FieldInfo[] fields = structType.GetFields(BindingFlags.Public | BindingFlags.Instance);
-            int size = 0;
-            foreach (FieldInfo field in fields)
-            {
-                var attribute = Attribute.GetCustomAttribute(field, typeof(HideInBuffer));
-                if (attribute != null)
-                    continue;
-                var value = field.GetValue(cb);
-                if (field.FieldType == typeof(float))
-                {
-                    computeShader.SetFloat(field.Name, (float)value);
-                    currMaterial.SetFloat(field.Name, (float)value);
-                    size++;
-                }
-                else if (field.FieldType == typeof(int))
-                {
-                    computeShader.SetInt(field.Name, (int)value);
-                    currMaterial.SetInt(field.Name, (int)value);
-                    size++;
-                }
-                else if (field.FieldType == typeof(float[]))
-                {
-                    currMaterial.SetFloatArray(field.Name, (float[])value);
-                    size += ((float[])value).Length;
-                }
-                else if (field.FieldType == typeof(Vector2))
-                {
-                    computeShader.SetVector(field.Name, (Vector2)value);
-                    currMaterial.SetVector(field.Name, (Vector2)value);
-                    size += 2;
-                }
-                else if (field.FieldType == typeof(Vector3))
-                {
-                    computeShader.SetVector(field.Name, (Vector3)value);
-                    currMaterial.SetVector(field.Name, (Vector3)value);
-                    size += 3;
-                }
-                else if (field.FieldType == typeof(Vector4))
-                {
-                    computeShader.SetVector(field.Name, (Vector4)value);
-                    currMaterial.SetVector(field.Name, (Vector4)value);
-                    size += 4;
-                }
-                else if (field.FieldType == typeof(Color))
-                {
-                    currMaterial.SetColor(field.Name, (Color)value);
-                    size += 4;
-                }
-                else if (field.FieldType == typeof(ColorParameter))
-                {
-                    currMaterial.SetColor(field.Name, ((ColorParameter)value).value);
-                    size += 4;
-                }
-                else if (field.FieldType == typeof(Texture2D))
-                {
-                    computeShader.SetTexture(0, field.Name, (Texture2D)value);
-                    currMaterial.SetTexture(field.Name, (Texture2D)value);
-                }
-                else if (field.FieldType == typeof(Matrix4x4))
-                {
-                    currMaterial.SetMatrix(field.Name, (Matrix4x4)value);
-                    size += 16;
-                }
-                else if (field.FieldType == typeof(RenderTexture))
-                {
-                    var texture = (RenderTexture)value;
-                    if (texture)
-                    {
-                        computeShader.SetTexture(0, Shader.PropertyToID(field.Name), texture);
-                        currMaterial.SetTexture(field.Name, texture);
-                    }
-                }
-                else
-                {
-                    throw new Exception("not find type:" + field.FieldType);
-                }
-            }
-
-            // ComputeBuffer buffer = new ComputeBuffer(1,,size);
-            // buffer.SetData("cloudSettings",);
-
-            return size;
-        }
 
         void SetDebugParams()
         {

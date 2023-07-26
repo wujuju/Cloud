@@ -1,3 +1,4 @@
+#include "VolumetricCloudsDef.cs.hlsl"
 float remap(float v, float minOld, float maxOld, float minNew, float maxNew)
 {
     return minNew + (v - minOld) * (maxNew - minNew) / (maxOld - minOld);
@@ -38,80 +39,11 @@ SamplerState samplerBlueNoise;
 SamplerState samplerCurlNoise;
 SamplerState samplerCloudBakeTex;
 
-// Shape settings
-float4 mCloudTestParams;
-int3 mMapSize;
-float4 mPhaseParams;
-// March settings
-float mRayOffsetStrength;
-// Light settings
-float mLightAbsorptionThroughCloud;
-float4 mColA;
-float4 mColB;
-// Animation settings
-float mDetailSpeed;
-float mNumStepsSDF;
-float3 mBoundsMin;
-float3 mBoundsMax;
-float mDetailNoiseWeight;
-float3 mDetailNoiseWeights;
-float4 mShapeNoiseWeights;
-float mLightAbsorptionTowardSun;
-float mDarknessThreshold;
-int mNumStepsLight;
-float mCloudScale;
-float mBaseSpeed;
-float mDensityOffset;
-float mDensityMultiplier;
-float mDetailNoiseScale;
-float3 mShapeOffset;
-float3 mDetailOffset;
-float mTimeScale;
-float mBakeCloudSpeed;
-float mNumStepsCloud;
-float2 mBlueNoiseUV;
-
-
-float kMsCount;
-float mCloudCoverage;
-float mCloudDensity;
-float mCloudSpeed;
-float mCloudBasicNoiseScale;
-float mCloudDetailNoiseScale;
-float mCloudPowderPow;
-float mCloudPowderScale;
-float mCloudShadingSunLightScale;
-float mCloudGodRayScale;
-float mCloudMultiScatterExtinction;
-float mCloudMultiScatterScatter;
-float mCloudEnableGroundContribution;
-float mCloudWeatherUVScale;
-float3 mCloudAlbedo;
-float3 mCloudDirection;
-
-float getDensity(float heightMeter)
-{
-    return exp(-heightMeter * 0.001) * 0.001 * 0.001 * mCloudGodRayScale;
-}
-
-float powder(float opticalDepth)
-{
-    return pow(opticalDepth * 20.0, 0.5) * mCloudPowderScale;
-}
-
-float powderEffectNew(float depth, float height, float VoL)
-{
-    float r = VoL * 0.5 + 0.5;
-    r = r * r;
-    height = height * (1.0 - r) + r;
-    return depth * height;
-}
-
 float sampleDensity4(float3 rayPos)
 {
     // return sampleDensity2(rayPos,_Time.y);
-    float3 boundsCentre = (mBoundsMax + mBoundsMin) * 0.5;
-    float3 size = mBoundsMax - mBoundsMin;
+    float3 boundsCentre = (_boundsMax + _boundsMin) * 0.5;
+    float3 size = _boundsMax - _boundsMin;
     float speedShape = _Time.y * 0.05;
     float speedDetail = _Time.y * 0.3;
     float3 uvwShape = rayPos * 0.002 + float3(speedShape, speedShape * 0.2, 0);
@@ -123,13 +55,13 @@ float sampleDensity4(float3 rayPos)
 
     //边缘衰减
     const float containerEdgeFadeDst = 10;
-    float dstFromEdgeX = min(containerEdgeFadeDst, min(rayPos.x - mBoundsMin.x, mBoundsMax.x - rayPos.x));
-    float dstFromEdgeZ = min(containerEdgeFadeDst, min(rayPos.z - mBoundsMin.z, mBoundsMax.z - rayPos.z));
+    float dstFromEdgeX = min(containerEdgeFadeDst, min(rayPos.x - _boundsMin.x, _boundsMax.x - rayPos.x));
+    float dstFromEdgeZ = min(containerEdgeFadeDst, min(rayPos.z - _boundsMin.z, _boundsMax.z - rayPos.z));
     float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
 
     float gMin = remap(weatherMap.x, 0, 1, 0.1, 0.6);
     float gMax = remap(weatherMap.x, 0, 1, gMin, 0.9);
-    float heightPercent = (rayPos.y - mBoundsMin.y) / size.y;
+    float heightPercent = (rayPos.y - _boundsMin.y) / size.y;
     float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(
         remap(heightPercent, 1, gMax, 0, 1));
     float heightGradient2 = saturate(remap(heightPercent, 0.0, weatherMap.r, 1, 0)) * saturate(
@@ -138,21 +70,21 @@ float sampleDensity4(float3 rayPos)
 
     heightGradient *= edgeWeight;
 
-    float4 normalizedShapeWeights = mShapeNoiseWeights / dot(mShapeNoiseWeights, 1);
+    float4 normalizedShapeWeights = _shapeNoiseWeights / dot(_shapeNoiseWeights, 1);
     float shapeFBM = dot(shapeNoise, normalizedShapeWeights) * heightGradient;
-    float baseShapeDensity = shapeFBM + mDensityOffset * 0.01;
+    float baseShapeDensity = shapeFBM + _densityOffset * 0.01;
 
 
     if (baseShapeDensity > 0)
     {
         float4 detailNoise = SAMPLE_TEXTURE3D_LOD(DetailNoiseTex, samplerDetailNoiseTex,
                                                   float4(uvwDetail + (shapeNoise.r * 8 * 0.1), 0), 0);
-        float detailFBM = pow(detailNoise.r, mDetailNoiseWeights.x);
+        float detailFBM = pow(detailNoise.r, _detailNoiseWeights.x);
         float oneMinusShape = 1 - baseShapeDensity;
         float detailErodeWeight = oneMinusShape * oneMinusShape * oneMinusShape;
-        float cloudDensity = baseShapeDensity - detailFBM * detailErodeWeight * mDetailNoiseWeight;
+        float cloudDensity = baseShapeDensity - detailFBM * detailErodeWeight * _detailNoiseWeight;
 
-        return saturate(cloudDensity * mDensityMultiplier);
+        return saturate(cloudDensity * _densityMultiplier);
     }
     return 0;
 }

@@ -24,20 +24,20 @@ float lightmarch(float3 p)
     //获取灯光信息
     Light mainLight = GetMainLight();
     float3 dirToLight = mainLight.direction;
-    float dstInsideBox = rayBoxDst(mBoundsMin, mBoundsMax, p, 1 / dirToLight).y;
+    float dstInsideBox = rayBoxDst(_boundsMin, _boundsMax, p, 1 / dirToLight).y;
 
-    float stepSize = dstInsideBox / mNumStepsLight;
+    float stepSize = dstInsideBox / _numStepsLight;
     p += dirToLight * stepSize * .5;
     float totalDensity = 0;
 
-    for (int step = 0; step < mNumStepsLight; step ++)
+    for (int step = 0; step < _numStepsLight; step ++)
     {
         totalDensity += max(0, sampleDensity4(p) * stepSize);
         p += dirToLight * stepSize;
     }
 
-    float transmittance = exp(-totalDensity * mLightAbsorptionTowardSun);
-    return mDarknessThreshold + transmittance * (1 - mDarknessThreshold);
+    float transmittance = exp(-totalDensity * _lightAbsorptionTowardSun);
+    return _darknessThreshold + transmittance * (1 - _darknessThreshold);
 }
 
 float sdf(float3 p, float uv, float num)
@@ -61,7 +61,7 @@ float sdf(float3 p, float uv, float num)
             WorldDir.x = cosTheta * sinPhi;
             WorldDir.y = sinTheta * sinPhi;
             WorldDir.z = cosPhi;
-            float dstInsideBox = rayBoxDst(mBoundsMin, mBoundsMax, p, WorldDir).y;
+            float dstInsideBox = rayBoxDst(_boundsMin, _boundsMax, p, WorldDir).y;
             // float randomOffset = BlueNoise.SampleLevel(samplerBlueNoise, squareUV(uv * 3), 0);
             // float step = 5 + randomOffset * mRayOffsetStrength;
             float step = 11;
@@ -70,7 +70,7 @@ float sdf(float3 p, float uv, float num)
                 float density = sampleDensity4(p + WorldDir * step);
                 if (density > 0)
                 {
-                    return step / mNumStepsSDF;
+                    return step / _numStepsSDF;
                 }
                 step += 11;
             }
@@ -87,7 +87,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     Result.GetDimensions(w, h, d);
     float4 color = float4(0, 0, 0, 1);
     const float3 uvw = (id.xyz + 0.5f) / float3(w, h, d);
-    const float3 p = mBoundsMin + uvw * (mBoundsMax - mBoundsMin);
+    const float3 p = _boundsMin + uvw * (_boundsMax - _boundsMin);
     color.r = sampleDensity4(p);
     color.g = sdf(p, uvw.xy, 64);
     if (color.r > 0)

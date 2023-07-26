@@ -65,7 +65,7 @@
                 return float2(dstToBox, dstInsideBox);
             }
 
-            float4 mCloudTestParams;
+            float4 _cloudTestParams;
 
 
             sampler2D _MainTex;
