@@ -32,7 +32,9 @@ public class GenerateHLSL : MonoBehaviour
         FieldInfo[] fields = structType.GetFields(BindingFlags.Public | BindingFlags.Instance);
         foreach (FieldInfo field in fields)
         {
-            var fileName = "_" + field.Name;
+            var fileName = field.Name;
+            if (!fileName.StartsWith("_"))
+                fileName = "_" + field.Name;
             if (field.FieldType == typeof(float))
             {
                 sb.Append(string.Format("float {0};\n", fileName));

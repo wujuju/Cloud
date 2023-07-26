@@ -1,7 +1,6 @@
 #ifndef ShaderVariablesClouds_CS_HLSL
 #define ShaderVariablesClouds_CS_HLSL
-cbuffer ShaderVariablesClouds : register(b1)
-{
+CBUFFER_START (ShaderVariablesClouds)
 float _rayOffsetStrength;
 float _lightAbsorptionThroughCloud;
 float4 _cloudTestParams;
@@ -23,5 +22,5 @@ float _timeScale;
 float _bakeCloudSpeed;
 float _numStepsCloud;
 float2 _blueNoiseUV;
-}
+CBUFFER_END
 #endif

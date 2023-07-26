@@ -161,12 +161,12 @@ Shader "Hidden/Clouds"
                     #if BAKE
                         float3 bakeColor=bakeDensity(rayPos);
                         float density = bakeColor.r;
-                        float sdf=bakeColor.g*mNumStepsSDF;
+                        float sdf=bakeColor.g*_numStepsSDF;
                         stepSize=sdf;
-                     // stepSize=max(11,sdf);
+                       stepSize=max(11,sdf);
                         float  lightTransmittance = bakeColor.b;
                         lightEnergy += density * stepSize * transmittance * lightTransmittance * phaseVal;
-                        transmittance *= exp(-density * stepSize * mLightAbsorptionThroughCloud);
+                        transmittance *= exp(-density * stepSize * _lightAbsorptionThroughCloud);
                         // Early exit
                         if (transmittance < 0.01)
                         {

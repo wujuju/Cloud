@@ -58,13 +58,13 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             cmd.GetTemporaryRT(downSampleColorRT, rtSize.x, rtSize.y, 0, FilterMode.Bilinear,
                 RenderTextureFormat.DefaultHDR);
 
-            cloudSettings.UpdateBuff();
+            cloudSettings.UpdateBuff(cmd);
             // int size = Marshal.SizeOf(typeof(ShaderVariablesClouds));
             // ComputeBuffer computeBuffer = new ComputeBuffer(1, size); // 这里假设结构体有两个float成员
             // computeBuffer.SetData(new ShaderVariablesClouds[] { cloudSettings.shaderVariablesClouds });
             // cmd.SetGlobalBuffer(Shader.PropertyToID("ShaderVariablesClouds"), computeBuffer);
             Common.SetComputeShaderConstant(cloudSettings.shaderVariablesClouds.GetType(),
-                cloudSettings.shaderVariablesClouds, CloudSettings.Material);
+                cloudSettings.shaderVariablesClouds, cmd);
             // CloudSettings.Material.SetBuffer(Shader.PropertyToID("ShaderVariablesClouds"), computeBuffer);
             // CloudSettings.Material.SetConstantBuffer(Shader.PropertyToID("ShaderVariablesClouds"), computeBuffer, 0,
             //     size);
@@ -99,24 +99,27 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
     [System.Serializable]
     public class CloudSettings
     {
-        [HideInInspector, HideInBuffer] public bool isInitBake;
+        [HideInInspector] public bool isInitBake;
         [HideInInspector] public Vector3 mBoundsMin;
         [HideInInspector] public Vector3 mBoundsMax;
         [HideInInspector] public Vector4 mPhaseParams;
         [HideInInspector] public RenderTexture CloudBakeTex;
         [HideInInspector] public RenderTexture NewBasicNoiseTex;
         [HideInInspector] public RenderTexture NewDetailNoiseTex;
-        [HideInBuffer] public ComputeShader computeShader;
-        [HideInBuffer] public Vector3Int resolution = new Vector3Int(512, 64, 512);
-        [HideInInspector, HideInBuffer] public string name = "VolumeCloud";
-        [HideInBuffer] public bool isUseBake;
-        [HideInInspector, HideInBuffer] public bool isDebug;
+        public ComputeShader computeShader;
+        public Vector3Int resolution = new Vector3Int(512, 64, 512);
+        [HideInInspector] public string name = "VolumeCloud";
+        public bool isUseBake;
+        [HideInInspector] public bool isDebug;
 
-        [HideInBuffer] public TextureParameter noise3D;
-        [HideInBuffer] public TextureParameter noise3D2;
         const string headerDecoration = " --- ";
 
         [Header(headerDecoration + "Main" + headerDecoration)]
+        public Texture NoiseTex;
+
+        public Texture DetailNoiseTex;
+        public Texture2D BlueNoise;
+        public Texture2D WeatherMap;
         public Vector3 mCloudTestParams = new Vector3(0.9f, 7.29f, 0.64f);
 
         [Header(headerDecoration + "Optimize" + headerDecoration)] [Range(1, 4)]
@@ -129,8 +132,6 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
 
         [Range(100, 3000)] public float mNumStepsSDF = 2000;
         public float mRayOffsetStrength = 9.19f;
-        public Texture2D BlueNoise;
-        public Texture2D NewWeatherMap;
         [HideInInspector] public Vector2 mBlueNoiseUV;
 
         [Header(headerDecoration + "Base Shape" + headerDecoration)]
@@ -207,12 +208,8 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             }
         }
 
-        public void UpdateBuff()
+        public void UpdateBuff(CommandBuffer cmd)
         {
-            var noise = FindObjectOfType<NoiseGenerator>();
-            var weatherMapGen = FindObjectOfType<WeatherMap>();
-            if (noise == null || weatherMapGen == null)
-                return;
             var material = Material;
             if (isUseBake)
                 material.EnableKeyword("BAKE");
@@ -224,8 +221,6 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             else
                 material.DisableKeyword("USE_DOWN_TEX");
 #if UNITY_EDITOR
-            noise.UpdateNoise();
-            weatherMapGen.UpdateMap();
             SetDebugParams();
 #endif
             Transform container = GameObject.Find("Container").transform;
@@ -240,24 +235,26 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
 
             this.UpdateBuffer(ref shaderVariablesClouds);
 
-            material.SetTexture("NoiseTex", noise3D.value);
-            material.SetTexture("DetailNoiseTex", noise3D2.value);
-            material.SetTexture("WeatherMap", NewWeatherMap);
-            material.SetTexture("BlueNoise", BlueNoise);
+            cmd.SetGlobalTexture("NoiseTex", NoiseTex);
+            cmd.SetGlobalTexture("DetailNoiseTex", DetailNoiseTex);
+            cmd.SetGlobalTexture("WeatherMap", WeatherMap);
+            cmd.SetGlobalTexture("BlueNoise", BlueNoise);
 
             if (isUseBake)
-                PrecomputeCloud();
+                PrecomputeCloud(cmd);
         }
 
-        private void PrecomputeCloud()
+        private void PrecomputeCloud(CommandBuffer cmd)
         {
             if (isInitBake && CloudBakeTex)
                 return;
+            // Common.SetComputeShaderConstant(shaderVariablesClouds.GetType(),
+            //     shaderVariablesClouds, computeShader);
             Common.CheckOrCreateLUT(ref CloudBakeTex, resolution, RenderTextureFormat.RGB111110Float,
                 TextureWrapMode.Clamp, FilterMode.Bilinear);
             int index = computeShader.FindKernel("CSMain");
             computeShader.SetTexture(index, Shader.PropertyToID("Result"), CloudBakeTex);
-            Common.Dispatch(computeShader, index, resolution);
+            Common.Dispatch(cmd, computeShader, index, resolution);
             isInitBake = true;
         }
 

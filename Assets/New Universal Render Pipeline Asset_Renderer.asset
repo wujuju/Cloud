@@ -61,14 +61,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   cloudSettings:
-    isNewNoise: 1
     isInitBake: 1
-    mMapSize: {x: 1467.307, y: 36.83682, z: 1050.072}
     mBoundsMin: {x: -732.5535, y: 1.681591, z: -525.036}
     mBoundsMax: {x: 734.7535, y: 38.51841, z: 525.036}
-    WeatherMap: {fileID: 0}
-    NoiseTex: {fileID: 0}
-    DetailNoiseTex: {fileID: 0}
     mPhaseParams: {x: 0.78, y: 0.25, z: 0.29, w: 0.6}
     CloudBakeTex: {fileID: 0}
     NewBasicNoiseTex: {fileID: 0}
@@ -78,34 +73,22 @@ MonoBehaviour:
     name: VolumeCloud
     isUseBake: 0
     isDebug: 0
-    noise3D:
-      m_OverrideState: 0
-      m_Value: {fileID: 11700000, guid: a3063aef13c7b8c458ae9da7e0a75d5f, type: 2}
-      dimension: 3
-    noise3D2:
-      m_OverrideState: 0
-      m_Value: {fileID: 11700000, guid: 11ded9c9d808b4365b4b40a5198368be, type: 2}
-      dimension: 3
+    NoiseTex: {fileID: 11700000, guid: a3063aef13c7b8c458ae9da7e0a75d5f, type: 2}
+    DetailNoiseTex: {fileID: 11700000, guid: 11ded9c9d808b4365b4b40a5198368be, type: 2}
+    BlueNoise: {fileID: 2800000, guid: 6d82457f96ba8449597922c106f17caa, type: 3}
+    WeatherMap: {fileID: 2800000, guid: 23f2298b201e91044a5aae6f3999ed36, type: 3}
     mCloudTestParams: {x: 0.9, y: 7.29, z: 0.64}
     mRTScale: 1
     mNumStepsLight: 8
     mNumStepsCloud: 64
-    mNumStepsSDF: 2000
-    mRayOffsetStrength: 2
-    BlueNoise: {fileID: 2800000, guid: 6d82457f96ba8449597922c106f17caa, type: 3}
-    CurlNoise: {fileID: 2800000, guid: ebdb721a0ed8a184db9a95da8310ebc3, type: 3}
-    NewWeatherMap: {fileID: 2800000, guid: 23f2298b201e91044a5aae6f3999ed36, type: 3}
-    mBlueNoiseUV: {x: 3.9257812, y: 1.609375}
-    mCloudScale: 1
+    mNumStepsSDF: 1000
+    mRayOffsetStrength: 10
+    mBlueNoiseUV: {x: 3.9296875, y: 1.6210938}
     mDensityMultiplier: 1.4
     mDensityOffset: -10.9
-    mShapeOffset: {x: 29.4, y: -47.87, z: 1.11}
-    mHeightOffset: {x: 0, y: 0}
     mShapeNoiseWeights: {x: 3.7, y: 20.73, z: -3.8, w: -17.03}
-    mDetailNoiseScale: 2.82
     mDetailNoiseWeight: 6.4
     mDetailNoiseWeights: {x: 14.57, y: -0.48, z: 0}
-    mDetailOffset: {x: -16.33, y: 0, z: 0}
     mLightAbsorptionThroughCloud: 0.3
     mLightAbsorptionTowardSun: 0.16
     mDarknessThreshold: 0
@@ -114,8 +97,6 @@ MonoBehaviour:
     baseBrightness: 0.29
     phaseFactor: 0.6
     mTimeScale: 0.08
-    mBaseSpeed: 0.39
-    mDetailSpeed: 1
     mBakeCloudSpeed: 7.97
     mColA: {r: 1, g: 0.6060061, b: 0, a: 1}
     mColB: {r: 0.5230064, g: 0.601483, b: 0.6886792, a: 1}

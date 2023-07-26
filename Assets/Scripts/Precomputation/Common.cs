@@ -47,6 +47,39 @@ public class Common
             lutSize.y / (int)threadNumY, lutSize.z);
     }
 
+    public static void SetComputeShaderConstant(Type structType, object cb, CommandBuffer cs)
+    {
+        FieldInfo[] fields = structType.GetFields(BindingFlags.Public | BindingFlags.Instance);
+        foreach (FieldInfo field in fields)
+        {
+            var value = field.GetValue(cb);
+            if (field.FieldType == typeof(float))
+            {
+                cs.SetGlobalFloat(field.Name, (float)value);
+            }
+            else if (field.FieldType == typeof(int))
+            {
+                cs.SetGlobalInt(field.Name, (int)value);
+            }
+            else if (field.FieldType == typeof(Vector2))
+            {
+                cs.SetGlobalVector(field.Name, (Vector2)value);
+            }
+            else if (field.FieldType == typeof(Vector3))
+            {
+                cs.SetGlobalVector(field.Name, (Vector3)value);
+            }
+            else if (field.FieldType == typeof(Vector4))
+            {
+                cs.SetGlobalVector(field.Name, (Vector4)value);
+            }
+            else
+            {
+                throw new Exception("not find type:" + field.FieldType);
+            }
+        }
+    }
+    
     public static void SetComputeShaderConstant(Type structType, object cb, ComputeShader cs)
     {
         FieldInfo[] fields = structType.GetFields(BindingFlags.Public | BindingFlags.Instance);

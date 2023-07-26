@@ -41,7 +41,6 @@ SamplerState samplerCloudBakeTex;
 
 float sampleDensity4(float3 rayPos)
 {
-    // return sampleDensity2(rayPos,_Time.y);
     float3 boundsCentre = (_boundsMax + _boundsMin) * 0.5;
     float3 size = _boundsMax - _boundsMin;
     float speedShape = _Time.y * 0.05;
