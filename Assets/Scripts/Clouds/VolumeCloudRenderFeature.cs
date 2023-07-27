@@ -7,6 +7,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
 {
     public CloudSettings cloudSettings = new CloudSettings();
     CustomRenderPass m_ScriptablePass;
+
     /// <inheritdoc/>
     public override void Create()
     {
@@ -53,6 +54,12 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             cmd.GetTemporaryRT(downSampleColorRT, rtSize.x, rtSize.y, 0, FilterMode.Bilinear,
                 RenderTextureFormat.DefaultHDR);
 
+            if (!Application.isPlaying)
+            {
+                FindObjectOfType<WeatherMap>().UpdateMap();
+                FindObjectOfType<NoiseGenerator>().UpdateNoise();
+            }
+
             cloudSettings.UpdateBuff(cmd);
             // int size = Marshal.SizeOf(typeof(ShaderVariablesClouds));
             // ComputeBuffer computeBuffer = new ComputeBuffer(1, size); // 这里假设结构体有两个float成员
@@ -71,6 +78,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
                     RenderTextureFormat.RFloat);
                 cmd.Blit(null, downSampleDepthRT, CloudSettings.Material, 1);
             }
+
             cmd.Blit(blitSrc, downSampleColorRT, CloudSettings.Material, 0);
             cmd.Blit(downSampleColorRT, blitSrc, CloudSettings.Material, 2);
             if (cloudSettings.isDebug)
@@ -130,8 +138,8 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         [Header(headerDecoration + "Base Shape" + headerDecoration)]
         public float mDensityMultiplier = 0.82f;
 
-        public Vector3 shapeScale = new Vector3(0.002f,0.05f,0.2f);
-        public Vector3 detailScale = new Vector3(0.022f,0.3f,0.2f);
+        public Vector3 shapeScale = new Vector3(0.002f, 0.05f, 0.2f);
+        public Vector3 detailScale = new Vector3(0.022f, 0.3f, 0.2f);
         public float mDensityOffset = -3.64f;
         public Vector4 mShapeNoiseWeights = new Vector4(2.51f, 0.89f, 1.37f, 0.57f);
 
@@ -217,9 +225,7 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
                 material.EnableKeyword("USE_DOWN_TEX");
             else
                 material.DisableKeyword("USE_DOWN_TEX");
-#if UNITY_EDITOR
-            SetDebugParams();
-#endif
+
             Transform container = GameObject.Find("Container").transform;
             // mMapSize = container.localScale;
 
@@ -236,10 +242,13 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             cmd.SetGlobalTexture("DetailNoiseTex", DetailNoiseTex);
             cmd.SetGlobalTexture("WeatherMap", WeatherMap);
             cmd.SetGlobalTexture("BlueNoise", BlueNoise);
-            
+
             // cmd.SetGlobalTexture("NoiseTex", NewBasicNoiseTex);
             // cmd.SetGlobalTexture("DetailNoiseTex", NewDetailNoiseTex);
 
+#if UNITY_EDITOR
+            SetDebugParams(cmd);
+#endif
             if (isUseBake)
                 PrecomputeCloud(cmd);
         }
@@ -287,9 +296,8 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
 
         #region 常量缓冲区
 
-        void SetDebugParams()
+        void SetDebugParams(CommandBuffer cmd)
         {
-            var material = Material;
             var noise = FindObjectOfType<NoiseGenerator>();
             var weatherMapGen = FindObjectOfType<WeatherMap>();
             if (noise == null)
@@ -313,13 +321,16 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             }
 
             isDebug = true;
-            material.SetInt("debugViewMode", debugModeIndex);
-            material.SetFloat("debugNoiseSliceDepth", noise.viewerSliceDepth);
-            material.SetFloat("debugTileAmount", noise.viewerTileAmount);
-            material.SetFloat("viewerSize", noise.viewerSize);
-            material.SetVector("debugChannelWeight", noise.ChannelMask);
-            material.SetInt("debugGreyscale", (noise.viewerGreyscale) ? 1 : 0);
-            material.SetInt("debugShowAllChannels", (noise.viewerShowAllChannels) ? 1 : 0);
+            cmd.SetGlobalTexture("NoiseTex", noise.shapeTexture);
+            cmd.SetGlobalTexture("DetailNoiseTex", noise.detailTexture);
+            cmd.SetGlobalTexture("WeatherMap", weatherMapGen.weatherMap);
+            cmd.SetGlobalInt("debugViewMode", debugModeIndex);
+            cmd.SetGlobalFloat("debugNoiseSliceDepth", noise.viewerSliceDepth);
+            cmd.SetGlobalFloat("debugTileAmount", noise.viewerTileAmount);
+            cmd.SetGlobalFloat("viewerSize", noise.viewerSize);
+            cmd.SetGlobalVector("debugChannelWeight", noise.ChannelMask);
+            cmd.SetGlobalInt("debugGreyscale", (noise.viewerGreyscale) ? 1 : 0);
+            cmd.SetGlobalInt("debugShowAllChannels", (noise.viewerShowAllChannels) ? 1 : 0);
         }
 
         #endregion

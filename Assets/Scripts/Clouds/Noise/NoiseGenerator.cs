@@ -7,7 +7,6 @@ public class NoiseGenerator : MonoBehaviour {
     const int computeThreadGroupSize = 8;
     public const string detailNoiseName = "DetailNoise";
     public const string shapeNoiseName = "ShapeNoise";
-    public const string sdfName = "SDF";
 
     public enum CloudNoiseType { Shape, Detail }
     public enum TextureChannel { R, G, B, A }
@@ -216,8 +215,6 @@ public class NoiseGenerator : MonoBehaviour {
         updateNoise = true;
         UpdateNoise ();
     }
-
-    void OnValidate () { }
 
     public void ActiveNoiseSettingsChanged () {
         if (autoUpdate) {

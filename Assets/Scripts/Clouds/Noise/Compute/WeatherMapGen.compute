@@ -4,19 +4,19 @@
 
 #define TILE = 0
 
-struct NoiseSettings
-{
+struct NoiseSettings {
     int seed;
     int numLayers;
     float noiseScale;
     float lacunarity;
     float persistence;
-    float2 offset; //
+    float2 offset;//
 };
 
 StructuredBuffer<NoiseSettings> noiseSettings;
 StructuredBuffer<float4> offsets;
 
+static const int numThreads = 16;
 static const int minMaxAccuracy = 10000;
 uint resolution;
 RWTexture2D<float4> Result;
@@ -26,10 +26,10 @@ static const float radius = 1 / (2 * pi);
 
 RWStructuredBuffer<int> minMaxBuffer;
 float2 minMax;
-float4 _cloudTestParams;
+float4 params;
 
-[numthreads(16,16,1)]
-void CSMain(uint3 id : SV_DispatchThreadID)
+[numthreads(numThreads,numThreads,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
 {
     NoiseSettings settings = noiseSettings[0];
 
@@ -38,16 +38,15 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
     float mapValue = 0;
 
-    float2 pos = float2(id.x, id.y) / resolution;
-
-    for (int layer = 0; layer < settings.numLayers; layer++)
-    {
-        float noise = snoise((pos + settings.offset / 100) * frequency + offsets[layer].xy) * .5 + .5;
+    float2 pos = float2(id.x,id.y) / resolution;
+    
+    for (int layer = 0; layer < settings.numLayers; layer++) {
+        float noise = snoise((pos+settings.offset/100) * frequency + offsets[layer].xy )*.5+.5;
         mapValue += noise * amplitude;
         amplitude *= settings.persistence;
         frequency *= settings.lacunarity;
     }
-
+    
 
     /*
     float2 angle = float2(id.x,id.y) / resolution * 2 * pi;//
@@ -65,25 +64,26 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     }
     */
 
-    mapValue /= settings.numLayers;
+    mapValue/=settings.numLayers;
+    
 
-
-    InterlockedMin(minMaxBuffer[0], (int)(mapValue * minMaxAccuracy));
-    InterlockedMax(minMaxBuffer[1], (int)(mapValue * minMaxAccuracy));
+    InterlockedMin(minMaxBuffer[0], (int)(mapValue*minMaxAccuracy));
+    InterlockedMax(minMaxBuffer[1], (int)(mapValue*minMaxAccuracy));
     //InterlockedAdd(counterBuffer[0], 1);//
 
-    Result[id.xy] = pow(
-        saturate(((mapValue - minMax.x) / (minMax.y - minMax.x) - _cloudTestParams.x) * _cloudTestParams.y),
-        _cloudTestParams.z);
+    Result[id.xy] = pow(saturate(((mapValue-minMax.x)/(minMax.y-minMax.x)-params.x)*params.y), params.z);
+    //Result[id.xy] = mapValue;
+
 }
 
-[numthreads(8,8,1)]
-void CSNormalize(uint3 id : SV_DispatchThreadID)
+[numthreads(numThreads,numThreads,1)]
+void CSNormalize (uint3 id : SV_DispatchThreadID)
 {
-    float minVal = (float)minMaxBuffer[0] / minMaxAccuracy;
-    float maxVal = (float)minMaxBuffer[1] / minMaxAccuracy;
+    float minVal = (float)minMaxBuffer[0]/minMaxAccuracy;
+    float maxVal = (float)minMaxBuffer[1]/minMaxAccuracy;
 
-    float4 normalizedVal = (Result[id.xy] - minVal) / (maxVal - minVal);
+    float4 normalizedVal = (Result[id.xy]-minVal)/(maxVal-minVal);
     Result[id.xy] = normalizedVal;
     //Result[id.xy] = 1;//
+
 }
