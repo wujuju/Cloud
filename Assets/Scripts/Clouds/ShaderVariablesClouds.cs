@@ -20,6 +20,8 @@ public struct ShaderVariablesClouds
     public float _densityOffset;
     public float _densityMultiplier;
     public float _timeScale;
+    public Vector3 _shapeScale;
+    public Vector3 _detailScale;
     public float _bakeCloudSpeed;
     public float _numStepsCloud;
     public Vector2 _blueNoiseUV;

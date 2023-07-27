@@ -1,17 +1,12 @@
 using System;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.Serialization;
 
 public class VolumeCloudRenderFeature : ScriptableRendererFeature
 {
     public CloudSettings cloudSettings = new CloudSettings();
     CustomRenderPass m_ScriptablePass;
-
     /// <inheritdoc/>
     public override void Create()
     {
@@ -76,7 +71,6 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
                     RenderTextureFormat.RFloat);
                 cmd.Blit(null, downSampleDepthRT, CloudSettings.Material, 1);
             }
-
             cmd.Blit(blitSrc, downSampleColorRT, CloudSettings.Material, 0);
             cmd.Blit(downSampleColorRT, blitSrc, CloudSettings.Material, 2);
             if (cloudSettings.isDebug)
@@ -94,7 +88,6 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             cmd.ReleaseTemporaryRT(downSampleColorRT);
         }
     }
-
 
     [System.Serializable]
     public class CloudSettings
@@ -137,6 +130,8 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
         [Header(headerDecoration + "Base Shape" + headerDecoration)]
         public float mDensityMultiplier = 0.82f;
 
+        public Vector3 shapeScale = new Vector3(0.002f,0.05f,0.2f);
+        public Vector3 detailScale = new Vector3(0.022f,0.3f,0.2f);
         public float mDensityOffset = -3.64f;
         public Vector4 mShapeNoiseWeights = new Vector4(2.51f, 0.89f, 1.37f, 0.57f);
 
@@ -194,6 +189,8 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             cb._phaseParams = mPhaseParams;
             cb._cloudTestParams = mCloudTestParams;
             cb._rayOffsetStrength = mRayOffsetStrength;
+            cb._shapeScale = shapeScale;
+            cb._detailScale = detailScale;
         }
 
         static Material _Material;
@@ -239,6 +236,9 @@ public class VolumeCloudRenderFeature : ScriptableRendererFeature
             cmd.SetGlobalTexture("DetailNoiseTex", DetailNoiseTex);
             cmd.SetGlobalTexture("WeatherMap", WeatherMap);
             cmd.SetGlobalTexture("BlueNoise", BlueNoise);
+            
+            // cmd.SetGlobalTexture("NoiseTex", NewBasicNoiseTex);
+            // cmd.SetGlobalTexture("DetailNoiseTex", NewDetailNoiseTex);
 
             if (isUseBake)
                 PrecomputeCloud(cmd);

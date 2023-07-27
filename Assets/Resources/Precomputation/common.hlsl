@@ -1,4 +1,5 @@
 #include "VolumetricCloudsDef.cs.hlsl"
+
 float remap(float v, float minOld, float maxOld, float minNew, float maxNew)
 {
     return minNew + (v - minOld) * (maxNew - minNew) / (maxOld - minOld);
@@ -43,10 +44,10 @@ float sampleDensity4(float3 rayPos)
 {
     float3 boundsCentre = (_boundsMax + _boundsMin) * 0.5;
     float3 size = _boundsMax - _boundsMin;
-    float speedShape = _Time.y * 0.05;
-    float speedDetail = _Time.y * 0.3;
-    float3 uvwShape = rayPos * 0.002 + float3(speedShape, speedShape * 0.2, 0);
-    float3 uvwDetail = rayPos * 0.022 + float3(speedDetail, speedDetail * 0.2, 0);
+    float speedShape = _Time.y * _shapeScale.y;
+    float speedDetail = _Time.y * _detailScale.y;
+    float3 uvwShape = rayPos * _shapeScale.x + float3(speedShape, speedShape * _shapeScale.z, 0);
+    float3 uvwDetail = rayPos * _detailScale.x + float3(speedDetail, speedDetail * _detailScale.z, 0);
 
     float2 uv = (size.xz * 0.5f + (rayPos.xz - boundsCentre.xz)) / max(size.x, size.z);
     float4 weatherMap = SAMPLE_TEXTURE2D_LOD(WeatherMap, samplerWeatherMap, uv, 0);
@@ -72,7 +73,6 @@ float sampleDensity4(float3 rayPos)
     float4 normalizedShapeWeights = _shapeNoiseWeights / dot(_shapeNoiseWeights, 1);
     float shapeFBM = dot(shapeNoise, normalizedShapeWeights) * heightGradient;
     float baseShapeDensity = shapeFBM + _densityOffset * 0.01;
-
 
     if (baseShapeDensity > 0)
     {

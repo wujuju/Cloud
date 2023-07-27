@@ -19,6 +19,8 @@ int _numStepsLight;
 float _densityOffset;
 float _densityMultiplier;
 float _timeScale;
+float3 _shapeScale;
+float3 _detailScale;
 float _bakeCloudSpeed;
 float _numStepsCloud;
 float2 _blueNoiseUV;
