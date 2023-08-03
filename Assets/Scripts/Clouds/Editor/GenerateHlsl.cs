@@ -11,9 +11,12 @@ public class GenerateHLSL : MonoBehaviour
     [MenuItem("Tools/GenerateHLSL")]
     private static void GenerateHLSLCode()
     {
-        Type structType = typeof(ShaderVariablesClouds);
         string code = GenerateHLSLCode(typeof(ShaderVariablesClouds), "ShaderVariablesClouds_CS_HLSL", false);
         var savePath = "Assets/Resources/Precomputation/VolumetricCloudsDef.cs.hlsl";
+        File.WriteAllBytes(savePath, Encoding.UTF8.GetBytes(code));
+
+        code = GenerateHLSLCode(typeof(ShaderVariablesClouds2), "ShaderVariablesClouds_CS_HLSL2", false);
+        savePath = "Assets/Resources/Precomputation/VolumetricCloudsDef2.cs.hlsl";
         File.WriteAllBytes(savePath, Encoding.UTF8.GetBytes(code));
     }
 
