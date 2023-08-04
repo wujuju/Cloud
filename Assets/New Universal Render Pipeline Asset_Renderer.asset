@@ -39,7 +39,7 @@ MonoBehaviour:
     ColB: {r: 0.24029905, g: 0.30355722, b: 0.3773585, a: 1}
     ColBMutiplier: 1.05
     WindSpeed: 1
-    WindVector: {x: -10.83, y: 27.3}
+    WindVector: {x: -20.39, y: -0.13}
     WindDirection: {x: 0, y: 0}
     BasicNoiseWindSpeed: 0.846
     DetailNoiseWindSpeed: 0.469
