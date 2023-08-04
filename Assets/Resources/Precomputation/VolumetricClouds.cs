@@ -20,12 +20,12 @@ public class VolumetricClouds
     public Vector4 WeatherTiling = new Vector4(1, 1, 0, 0);
 
     [Range(0.001f, 0.1f)] public float WeatherUVScale = 0.01f;
-    [Range(0.01f, 10)] public float BasicNoiseScale = 0.3f;
-    [Range(0.1f, 5)] public float AltitudeDistortion = 0.125f;
-    [Range(0.01f, 10)] public float DetailNoiseScale = 0.6f;
+    [Range(0.001f, 0.15f)] public float BasicNoiseScale = 0.3f;
+    [Range(0.1f, 1f)] public float AltitudeDistortion = 0.125f;
+    [Range(0.001f, 0.15f)] public float DetailNoiseScale = 0.6f;
     [Range(0.1f, 1)] public float DensityMultiplier = 1;
     [Range(0, 2)] public float CloudCoverage = 0.5f;
-    [Range(0.01f, 1)] public float mCloudCoverageUVScale = 0.01f;
+    [Range(0.0f, 0.1f )] public float mCloudCoverageUVScale = 0.01f;
 
     [Header(headerDecoration + "Lighting" + headerDecoration)] [Range(-1f, 1)]
     public float PhaseForward = 0.5f;
@@ -42,10 +42,11 @@ public class VolumetricClouds
     [Header(headerDecoration + "Wind" + headerDecoration)]
     [Range(0.1f, 1)] public float WindSpeed = 0.05f;
     public Vector2 WindVector = new Vector2(0, 0);
+    public Vector2 WindDirection = new Vector2(0, 0);
     [Range(0.1f, 1)] public float BasicNoiseWindSpeed = 1f;
     [Range(0.1f, 1)] public float DetailNoiseWindSpeed = 1f;
-    [Range(0.0f, 10)] public float VerticalShapeWindDisplacement = 0f;
-    [Range(0.0f, 10)] public float VerticalErosionWindDisplacement = 0f;
+    [Range(-10.0f, 10)] public float VerticalShapeWindDisplacement = 0f;
+    [Range(-10.0f, 10)] public float VerticalErosionWindDisplacement = 0f;
     [Range(0.1f, 1)] public float WeatherWindSpeed = 0.05f;
 
     private Vector2 blueNoiseScale;
@@ -60,6 +61,7 @@ public class VolumetricClouds
         cb._HighestCloudAltitude = cb._LowestCloudAltitude + CloudThickness * kmScale;
         cb._NumPrimarySteps = NumPrimarySteps;
         cb._MaxRayMarchingDistance = MaxRayMarchingDistance;
+        cb._WindDirection = WindDirection;
         cb._WindVector = WindVector;
         cb._WindSpeed = WindSpeed;
         cb._VerticalShapeWindDisplacement = VerticalShapeWindDisplacement;

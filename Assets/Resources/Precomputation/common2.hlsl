@@ -85,6 +85,17 @@ int RaySphereIntersection(float3 startPS, float3 dir, float radius, out float2 r
     return numSolutions;
 }
 
+float hg(float a, float g) {
+    float g2 = g * g;
+    return (1 - g2) / (4 * 3.1415 * pow(1 + g2 - 2 * g * (a), 1.5));
+}
+
+float phase(float a) {
+    float blend = .5;
+    float hgBlend = hg(a, _PhaseForward) * (1 - blend) + hg(a, _PhaseBackward) * blend;
+    return 0.59 + hgBlend * 0.6;
+}
+
 bool RaySphereIntersection(float3 startWS, float3 dir, float radius)
 {
     float3 startPS = startWS;
@@ -124,6 +135,7 @@ float3 AnimateFineNoisePosition(float3 positionPS)
 
 float SampleCloudDensity(float3 positionPS, const float height_fraction)
 {
+    // _WindVector+=float2(-_Time.x * 50.0,_Time.x * 50.0);
     float3 baseNoiseSamplingCoordinates = AnimateBaseNoisePosition(positionPS).xzy * _BasicNoiseScale;
     baseNoiseSamplingCoordinates += height_fraction * float3(_WindDirection.x, _WindDirection.y, 0.0f) * _AltitudeDistortion;
     float base_cloud = SAMPLE_TEXTURE3D_LOD(NoiseTex, samplerNoiseTex, baseNoiseSamplingCoordinates, 0);
@@ -131,14 +143,13 @@ float SampleCloudDensity(float3 positionPS, const float height_fraction)
     const float2 normalizedPosition = AnimateCloudMapPosition(positionPS).xz * _WeatherUVScale * _WeatherTiling.xy + _WeatherTiling.zw - 0.5;
     const float4 weather_data = SAMPLE_TEXTURE2D_LOD(WeatherMap, samplerWeatherMap, normalizedPosition, 0);
     const float gradien_shape = Remap(height_fraction, 0.00, 0.10, 0.1, 1.0) * Remap(height_fraction, 0.10, 0.80, 1.0, 0.2);
-
     base_cloud *= gradien_shape;
-    float2 curl_noise = SAMPLE_TEXTURE3D_LOD(CurlNoise, samplerCurlNoise, (_Time.x * 50.0 + positionPS.xz) *1e-2 + 0.5, 0);
-    // float2 localCoverage = saturate(curl_noise.x * 3.0 - 0.75) * 0.2;
+    // float2 curl_noise = SAMPLE_TEXTURE3D_LOD(CurlNoise, samplerCurlNoise, (_Time.x * 50.0 + positionPS.xz) *_CloudCoverageUVScale + 0.5, 0);
+    // float2 localCoverage = saturate(curl_noise.x * 2.0 - 0.75)*0.2;
     // const float coverage = saturate(_Coverage * (localCoverage + weather_data.x));
     const float coverage = saturate(_Coverage * weather_data.x);
     const float base_cloud_with_coverage = coverage * Remap(base_cloud, 1.0 - coverage, 1, 0, 1);
-    positionPS.xy += curl_noise.xy * (1.0 - height_fraction);
+    // positionPS.xy += curl_noise.xy * (1.0 - height_fraction);
     const float high_freq_FBM = SAMPLE_TEXTURE3D_LOD(DetailNoiseTex, samplerDetailNoiseTex, AnimateFineNoisePosition(positionPS ) * _DetailNoiseScale, 0).r;
     const float high_freq_noise_modifier = lerp(high_freq_FBM, 1.0 - high_freq_FBM, saturate(height_fraction * 10.0));
     const float final_cloud = Remap(base_cloud_with_coverage, high_freq_noise_modifier, 1.0, 0.0, 1.0);

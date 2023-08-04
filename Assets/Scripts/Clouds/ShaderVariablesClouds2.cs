@@ -19,6 +19,7 @@ public struct ShaderVariablesClouds2
     public float _LightAbsorptionThroughCloud;
     public float _LightAbsorptionTowardSun;
     
+    public Vector2 _WindDirection;
     public Vector2 _WindVector;
     public float _VerticalShapeWindDisplacement;
     public float _VerticalErosionWindDisplacement;

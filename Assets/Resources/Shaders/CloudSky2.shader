@@ -94,8 +94,8 @@ Shader "Hidden/Clouds2"
 
                     Light mainLight = GetMainLight();
                     float3 sunColor = mainLight.color;
-                    float cosAngle = dot(worldDir, -mainLight.direction);
-
+                    float cosAngle = dot(worldDir, mainLight.direction);
+                    float a = phase(cosAngle);
                     int currentIndex = 0;
                     float3 currentPositionWS = worldPos + rayMarchRange.start * worldDir;
                     float currentDistance = 0;
@@ -114,7 +114,7 @@ Shader "Hidden/Clouds2"
                                 float opticalDepth = density * stepS; // to meter unit.
                                 float3 lightTransmittance = SampleLightMarch(currentPositionWS, mainLight.direction, sunColor);
 
-                                inScattering += opticalDepth * transmittance * lightTransmittance;
+                                inScattering += opticalDepth * transmittance * lightTransmittance * a;
                                 transmittance *= exp(-opticalDepth);
                                 if (transmittance < 0.003)
                                 {

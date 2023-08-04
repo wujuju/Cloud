@@ -17,7 +17,7 @@ float _NumLightSteps;
 float _DarknessThreshold;
 float _LightAbsorptionThroughCloud;
 float _LightAbsorptionTowardSun;
-float3 _WindDirection;
+float2 _WindDirection;
 float2 _WindVector;
 float _VerticalShapeWindDisplacement;
 float _VerticalErosionWindDisplacement;
@@ -32,8 +32,6 @@ float _AltitudeDistortion;
 float _Coverage;
 float _WeatherUVScale;
 float _CloudCoverageUVScale;
-float _CloudMultiScatterScatter;
-float3 _cloudDirection;
 float2 _blueNoiseScale;
 CBUFFER_END
 #endif

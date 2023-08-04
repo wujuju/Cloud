@@ -15,42 +15,43 @@ MonoBehaviour:
   m_Active: 1
   cloudSettings:
     RTScale: 1
+    NumPrimarySteps: 64
+    NumLightSteps: 6
     EarthCurvature: 0
     LowestCloudAltitude: 1000
-    CloudThickness: 8916
-    MaxRayMarchingDistance: 350
-    NumPrimarySteps: 64
-    MultiScattering: 0.5
-    WeatherUVScale: 0.01
-    BasicNoiseScale: 0.015
-    DetailNoiseScale: 1.27
-    BasicNoiseFactor: 1
-    DetailNoiseFactor: 1.01
-    DensityMultiplier: 0.686
-    CloudCoverage: 1.122
-    NumLightSteps: 6
-    PhaseForward: 0.5
-    PhaseBackward: -0.5
-    WindDirection: {x: 0.8, y: 0, z: 0.4}
+    CloudThickness: 8000
+    MaxRayMarchingDistance: 80
+    WeatherTiling: {x: 1, y: 1, z: 0, w: 0}
+    WeatherUVScale: 0.0274
+    BasicNoiseScale: 0.085
+    AltitudeDistortion: 0.125
+    DetailNoiseScale: 0.0202
+    DensityMultiplier: 0.52
+    CloudCoverage: 1.185
+    mCloudCoverageUVScale: 0.0067
+    PhaseForward: 0.751
+    PhaseBackward: -0.595
+    LightAbsorptionThroughCloud: 1.05
+    LightAbsorptionTowardSun: 0.32
+    DarknessThreshold: 0.191
+    ColA: {r: 0.9056604, g: 0.31185475, b: 0.31185475, a: 1}
+    ColAMutiplier: 1.81
+    ColB: {r: 0.24029905, g: 0.30355722, b: 0.3773585, a: 1}
+    ColBMutiplier: 1.05
     WindSpeed: 1
-    PowderEffectIntensity: 0.297
-    mCloudPowderPow: 3.1
-    mCloudPowderScale: 36.5
-    mCloudShadingSunLightScale: 1
-    mCloudGodRayScale: 50
-    mCloudMultiScatterExtinction: 0.124
-    mCloudEnableGroundContribution: 1
-    mCloudCoverageUVScale: 0.01
-    cloudMultiScatterExtinction: 0.175
-    cloudMultiScatterScatter: 1
-    cloudPhaseMixFactor: 0.5
-    mCloudAlbedo: {x: 1, y: 1, z: 1}
+    WindVector: {x: -10.83, y: 27.3}
+    WindDirection: {x: 0, y: 0}
+    BasicNoiseWindSpeed: 0.846
+    DetailNoiseWindSpeed: 0.469
+    VerticalShapeWindDisplacement: 0
+    VerticalErosionWindDisplacement: 0
+    WeatherWindSpeed: 0.151
   computeShader: {fileID: 7200000, guid: 81619b6e193c1b24caf2c4e9632d3a63, type: 3}
   NewBasicNoiseTex: {fileID: 0}
   NewDetailNoiseTex: {fileID: 0}
   BlueNoise: {fileID: 2800000, guid: 6d82457f96ba8449597922c106f17caa, type: 3}
-  WeatherMap: {fileID: 2800000, guid: 47d01dea974863541a4e1779b0f473fb, type: 3}
-  CurlNoise: {fileID: 2800000, guid: ebdb721a0ed8a184db9a95da8310ebc3, type: 3}
+  WeatherMap: {fileID: 2800000, guid: 23f2298b201e91044a5aae6f3999ed36, type: 3}
+  CurlNoise: {fileID: 2800000, guid: 38e6103e90ff92543ae782b3105030fe, type: 3}
 --- !u!114 &-4957506703680899502
 MonoBehaviour:
   m_ObjectHideFlags: 0
